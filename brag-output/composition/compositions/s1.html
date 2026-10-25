@@ -1,0 +1,138 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    .s1-browser {
+      position: absolute;
+      left: 210px;
+      top: 96px;
+      width: 1500px;
+      height: 888px;
+      background: var(--color-surface);
+      border-radius: 20px;
+      box-shadow: 0 30px 80px rgba(24, 35, 58, 0.16), 0 0 0 1px var(--color-rule);
+      overflow: hidden;
+    }
+    .s1-bar {
+      height: 84px;
+      border-bottom: 1px solid var(--color-rule);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 30px;
+      background: var(--color-sheet);
+    }
+    .s1-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--color-rule);
+    }
+    .s1-query {
+      margin-left: 22px;
+      flex: 1;
+      height: 50px;
+      border-radius: 25px;
+      border: 1px solid var(--color-rule);
+      background: var(--color-surface);
+      display: flex;
+      align-items: center;
+      padding: 0 26px;
+      font-size: 24px;
+      color: var(--color-ink);
+    }
+    .s1-results {
+      padding: 34px 70px;
+      display: flex;
+      flex-direction: column;
+      gap: 34px;
+    }
+    .s1-result .s1-url {
+      font-size: 21px;
+      color: var(--color-ink-soft);
+    }
+    .s1-result .s1-title {
+      font-size: 33px;
+      font-weight: 700;
+      color: var(--color-ink);
+      margin: 4px 0 8px;
+    }
+    .s1-result .s1-snippet {
+      font-size: 26px;
+      color: var(--color-ink-soft);
+      line-height: 1.4;
+    }
+    /* An address, split into the pieces the page renders it as. */
+    .s1-mail {
+      color: var(--color-ink);
+      white-space: nowrap;
+    }
+    .s1-mail span {
+      display: inline-block;
+    }
+    .s1-mail b {
+      display: inline-block;
+      font-weight: 800;
+      color: var(--color-ink);
+      border-radius: 6px;
+    }
+  </style>
+  <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+    <div id="s1-browser" class="s1-browser">
+      <div class="s1-bar">
+        <div class="s1-dot"></div>
+        <div class="s1-dot"></div>
+        <div class="s1-dot"></div>
+        <div class="s1-query">bakery contact email</div>
+      </div>
+      <div class="s1-results">
+        <div class="s1-result">
+          <div class="s1-url">larkspurbakery.example › contact</div>
+          <div class="s1-title">Larkspur Bakery | Contact</div>
+          <div class="s1-snippet">Visit us on Mill Street. <b style="font-weight:800;color:var(--color-ink)">Email</b>: <span class="s1-mail"><span>hello@larkspur</span><b>bakery</b><span>.example</span></span> · Open daily from 7am.</div>
+        </div>
+        <div class="s1-result">
+          <div class="s1-url">ryehouse.example › about</div>
+          <div class="s1-title">The Rye House</div>
+          <div class="s1-snippet">Wholesale and orders: <span class="s1-mail"><span>orders@ryehouse</span><b>bakery</b><span>.example</span></span> · Call ahead for cakes.</div>
+        </div>
+        <div class="s1-result">
+          <div class="s1-url">crumbandco.example › visit</div>
+          <div class="s1-title">Crumb and Co.</div>
+          <div class="s1-snippet">Questions? <span class="s1-mail"><b>bakery</b><span>@crumbandco</span><span>.example</span></span> · Gluten free on Fridays.</div>
+        </div>
+        <div class="s1-result">
+          <div class="s1-url">northgateloaves.example › contact</div>
+          <div class="s1-title">Northgate Loaves</div>
+          <div class="s1-snippet"><b style="font-weight:800;color:var(--color-ink)">Contact</b>: <span class="s1-mail"><span>northgate</span><b>bakery</b><span>@mail.example</span></span> · Collection from the side door.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    // Arrive: the window lands, the results settle one by one.
+    tl.fromTo("#s1-browser", { opacity: 0, y: 40, scale: 0.98 }, { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: "expo.out" }, 0.1);
+    tl.fromTo("#s1-browser .s1-result", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.35, stagger: 0.12, ease: "power4.out" }, 0.45);
+
+    // "Google even chops them into pieces" (2.82s): each address's pieces drift apart, the bold pieces lit.
+    const offsets = [
+      [-10, 12, 24],
+      [-12, 10, 22],
+      [-14, 6, 20],
+      [-12, 12, 26],
+    ];
+    document.querySelectorAll("#s1-browser .s1-mail").forEach((mail, i) => {
+      [...mail.children].forEach((piece, j) => {
+        tl.fromTo(piece, { x: 0, y: 0 }, { x: offsets[i][j], y: j % 2 ? -5 : 4, duration: 0.55, ease: "power3.out" }, 2.82 + i * 0.07);
+      });
+      tl.fromTo(mail.querySelector("b"), { backgroundColor: "rgba(15,122,100,0)", padding: "0px 0px" }, { backgroundColor: "rgba(15,122,100,0.18)", padding: "0px 6px", duration: 0.4, ease: "power2.out" }, 2.82 + i * 0.07);
+    });
+
+    // Leave clean: a blur swap into the next scene on the same stage.
+    tl.fromTo("#s1-browser", { opacity: 1, filter: "blur(0px)" }, { opacity: 0, filter: "blur(8px)", duration: 0.22, ease: "power2.in" }, 6.26);
+    window.__timelines["s1"] = tl;
+  </script>
+</template>

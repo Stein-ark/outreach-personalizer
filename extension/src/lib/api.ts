@@ -7,20 +7,17 @@ import {
   AuthResponse,
   CollectResponse,
   DeletedCount,
-  DraftResponse,
-  ExtractResponse,
-  Prospect,
+  Prospect as ProspectSchema,
   ProspectList,
+  SheetDraftResponse,
+  SheetList,
   Settings,
-  VoiceSample,
-  VoiceSampleList,
   type CollectRequest,
   type Credentials,
-  type DraftRequest,
-  type ExtractRequest,
   type LoginRequest,
   type ProspectFilter,
   type ProspectPatch,
+  type SheetDraftRequest,
 } from '@op/shared';
 import { AI_REQUEST_TIMEOUT_MS } from '../config';
 import { REFRESH_KEY, StoredRefresh, clearSession, getAccessToken, refreshTokens, saveSession } from './auth';
@@ -87,19 +84,19 @@ export const api = {
   getSettings: async () => json(Settings, await authed('/settings')),
   putSettings: async (body: Settings) => json(Settings, await authed('/settings', { method: 'PUT', body })),
 
-  listVoiceSamples: async () => (await json(VoiceSampleList, await authed('/voice-samples'))).items,
-  addVoiceSample: async (text: string) => json(VoiceSample, await authed('/voice-samples', { method: 'POST', body: { text } })),
-  deleteVoiceSample: async (id: string) => void (await authed(`/voice-samples/${encodeURIComponent(id)}`, { method: 'DELETE' })),
-
-  extract: async (body: ExtractRequest) => json(ExtractResponse, await authed('/extract', { method: 'POST', body, timeoutMs: AI_REQUEST_TIMEOUT_MS })),
-  draft: async (body: DraftRequest) => json(DraftResponse, await authed('/draft', { method: 'POST', body, timeoutMs: AI_REQUEST_TIMEOUT_MS })),
 
   listProspects: async (params: ProspectFilter & { cursor?: string; limit?: number }) =>
     json(ProspectList, await authed(`/prospects${qs(params)}`)),
-  getProspect: async (id: string) => json(Prospect, await authed(`/prospects/${encodeURIComponent(id)}`)),
   patchProspect: async (id: string, body: ProspectPatch) =>
-    json(Prospect, await authed(`/prospects/${encodeURIComponent(id)}`, { method: 'PATCH', body })),
+    json(ProspectSchema, await authed(`/prospects/${encodeURIComponent(id)}`, { method: 'PATCH', body })),
   deleteProspect: async (id: string) => void (await authed(`/prospects/${encodeURIComponent(id)}`, { method: 'DELETE' })),
+  sheets: async () => json(SheetList, await authed('/prospects/sheets')),
+  closeSheet: async (number: number) => void (await authed('/prospects/sheets/close', { method: 'POST', body: { number } })),
+  /** One sheet as .xlsx bytes, for the automatic download. */
+  exportSheet: async (number: number) => (await authed(`/prospects/export?sheet=${number}`, { timeoutMs: 60_000 })).arrayBuffer(),
+  /** One message for every not yet contacted email in a sheet. */
+  draftSheet: async (number: number, body: SheetDraftRequest) =>
+    json(SheetDraftResponse, await authed(`/prospects/sheets/${number}/draft`, { method: 'POST', body, timeoutMs: AI_REQUEST_TIMEOUT_MS })),
   collect: async (body: CollectRequest) => json(CollectResponse, await authed('/prospects/collect', { method: 'POST', body })),
   deleteAllProspects: async () => json(DeletedCount, await authed('/prospects?confirm=all', { method: 'DELETE' })),
 

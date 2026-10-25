@@ -55,10 +55,10 @@ export function ErrorNotice({ shown, onRetry, onOpenSettings, onDismiss }: Props
       return (
         <Banner
           tone="warn"
-          title="Finish your sender profile"
+          title="Add your name first"
           actions={onOpenSettings ? <Button size="sm" icon={SettingsIcon} onClick={onOpenSettings}>Open settings</Button> : null}
         >
-          Drafts need your name, organisation and what you are raising for or offering.
+          Messages are signed with your name. Add it in Settings.
         </Banner>
       );
     case 'DB_UNAVAILABLE':

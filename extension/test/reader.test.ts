@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyUrl, selectionResult } from '../src/lib/reader';
+import { classifyUrl } from '../src/lib/reader';
 import { findLoopbackPermissions, scanText } from '../build-checks';
 
 describe('classifyUrl', () => {
@@ -19,19 +19,6 @@ describe('classifyUrl', () => {
     [undefined, 'restricted'],
   ])('%s is %s', (url, expected) => {
     expect(classifyUrl(url)).toBe(expected);
-  });
-});
-
-describe('selectionResult', () => {
-  const tab = { id: 7, url: 'https://www.linkedin.com/in/x', title: 'Someone' };
-
-  it('works on blocked hosts because only the user selected text is used', () => {
-    const r = selectionResult(tab, 'Partner at Northwind Ventures, previously led the Ledgerly seed round.');
-    expect(r).toMatchObject({ ok: true, mode: 'selection', tabId: 7 });
-  });
-
-  it('rejects an empty selection', () => {
-    expect(selectionResult(tab, '  ')).toMatchObject({ ok: false, reason: 'empty' });
   });
 });
 

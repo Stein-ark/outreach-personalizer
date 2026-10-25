@@ -33,7 +33,7 @@ export class AiGateway {
     return this.provider.model;
   }
 
-  async completeJson(purpose: 'draft' | 'extract', req: JsonCompletionRequest): Promise<JsonCompletionResult> {
+  async completeJson(purpose: 'draft', req: JsonCompletionRequest): Promise<JsonCompletionResult> {
     const estimate = estimateTokens(req.system, req.user, req.maxOutputTokens);
     let retried = false;
     for (;;) {

@@ -1,0 +1,287 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    .s3-stage {
+      position: absolute;
+      left: 120px;
+      top: 200px;
+      width: 960px;
+      height: 680px;
+    }
+    .s3-page {
+      position: absolute;
+      inset: 0;
+      background: var(--color-surface);
+      border-radius: 20px;
+      box-shadow: 0 30px 80px rgba(24, 35, 58, 0.14), 0 0 0 1px var(--color-rule);
+      overflow: hidden;
+    }
+    .s3-page-bar {
+      height: 66px;
+      background: var(--color-sheet);
+      border-bottom: 1px solid var(--color-rule);
+      display: flex;
+      align-items: center;
+      padding: 0 26px;
+      font-size: 21px;
+      color: var(--color-ink-soft);
+    }
+    .s3-page-body {
+      padding: 44px 56px;
+    }
+    .s3-page-title {
+      font-size: 44px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .s3-page-text {
+      margin-top: 18px;
+      font-size: 25px;
+      color: var(--color-ink-soft);
+      line-height: 1.5;
+    }
+    .s3-page-mail {
+      margin-top: 12px;
+      font-size: 27px;
+      font-weight: 600;
+      color: var(--color-ink);
+    }
+    .s3-page-mail::before {
+      content: "";
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--color-accent);
+      margin-right: 14px;
+      vertical-align: middle;
+    }
+    .s3-panel {
+      position: absolute;
+      left: 1160px;
+      top: 120px;
+      width: 640px;
+      height: 840px;
+      background: var(--color-ground);
+      border-radius: 22px;
+      box-shadow: 0 30px 80px rgba(24, 35, 58, 0.16), 0 0 0 1px var(--color-rule);
+      padding: 36px 34px;
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+    }
+    .s3-tabs {
+      display: flex;
+      gap: 34px;
+      font-size: 26px;
+      font-weight: 600;
+      color: var(--color-ink-soft);
+      border-bottom: 1px solid var(--color-rule);
+    }
+    .s3-tabs .s3-on {
+      color: var(--color-ink);
+      border-bottom: 3px solid var(--color-ink);
+      padding-bottom: 14px;
+    }
+    .s3-h {
+      font-size: 32px;
+      font-weight: 700;
+    }
+    .s3-state {
+      position: relative;
+      height: 34px;
+      margin-top: 8px;
+      font-size: 24px;
+      color: var(--color-ink-soft);
+    }
+    .s3-state div {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+    .s3-button {
+      position: relative;
+      height: 64px;
+      border-radius: 12px;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .s3-button div {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+    }
+    .s3-btn-off {
+      background: var(--color-accent);
+      color: #ffffff;
+    }
+    .s3-btn-on {
+      background: var(--color-surface);
+      color: var(--color-ink);
+      border: 1px solid var(--color-rule);
+    }
+    .s3-card {
+      margin-top: auto;
+      background: var(--color-surface);
+      border: 1px solid var(--color-rule);
+      border-radius: 16px;
+      padding: 28px;
+    }
+    .s3-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .s3-sheet {
+      font-size: 32px;
+      font-weight: 700;
+    }
+    .s3-count {
+      font-size: 26px;
+      color: var(--color-ink-soft);
+    }
+    .s3-count strong {
+      color: var(--color-ink);
+      font-weight: 700;
+    }
+    #s3-of {
+      display: inline-block;
+      color: var(--color-ink-soft);
+    }
+    .s3-track {
+      margin-top: 20px;
+      height: 14px;
+      border-radius: 7px;
+      background: var(--color-ground);
+      overflow: hidden;
+    }
+    .s3-fill {
+      height: 100%;
+      width: 100%;
+      background: var(--color-accent);
+      transform-origin: left center;
+    }
+    .s3-cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 34px;
+      height: 46px;
+    }
+  </style>
+  <div id="root" data-composition-id="s3" data-width="1920" data-height="1080">
+    <div id="s3-stage" class="s3-stage">
+      <div class="s3-page" id="s3-p1">
+        <div class="s3-page-bar">harbourflorists.example/contact</div>
+        <div class="s3-page-body">
+          <div class="s3-page-title">Harbour Florists</div>
+          <div class="s3-page-text">Wedding and event flowers, delivered across the bay.</div>
+          <div class="s3-page-mail">studio@harbourflorists.example</div>
+          <div class="s3-page-mail">events@harbourflorists.example</div>
+        </div>
+      </div>
+      <div class="s3-page" id="s3-p2">
+        <div class="s3-page-bar">wrenstreetpottery.example/team</div>
+        <div class="s3-page-body">
+          <div class="s3-page-title">Wren Street Pottery</div>
+          <div class="s3-page-text">Classes, commissions and the occasional open kiln night.</div>
+          <div class="s3-page-mail">classes@wrenstreet.example</div>
+          <div class="s3-page-mail">mara@wrenstreet.example</div>
+          <div class="s3-page-mail">tom@wrenstreet.example</div>
+        </div>
+      </div>
+      <div class="s3-page" id="s3-p3">
+        <div class="s3-page-bar">bramblecafe.example/visit</div>
+        <div class="s3-page-body">
+          <div class="s3-page-title">Bramble Café</div>
+          <div class="s3-page-text">Breakfast all day. Private hire on Sunday evenings.</div>
+          <div class="s3-page-mail">hello@bramblecafe.example</div>
+        </div>
+      </div>
+      <div class="s3-page" id="s3-p4">
+        <div class="s3-page-bar">oakandember.example/contact</div>
+        <div class="s3-page-body">
+          <div class="s3-page-title">Oak and Ember Joinery</div>
+          <div class="s3-page-text">Fitted kitchens, staircases and repairs.</div>
+          <div class="s3-page-mail">workshop@oakandember.example</div>
+          <div class="s3-page-mail">quotes@oakandember.example</div>
+        </div>
+      </div>
+      <div class="s3-page" id="s3-p5">
+        <div class="s3-page-bar">tidewellbooks.example/about</div>
+        <div class="s3-page-body">
+          <div class="s3-page-title">Tidewell Bookshop</div>
+          <div class="s3-page-text">Secondhand, rare and local. Author evenings monthly.</div>
+          <div class="s3-page-mail">books@tidewell.example</div>
+          <div class="s3-page-mail">events@tidewell.example</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="s3-panel" class="s3-panel">
+      <div class="s3-tabs"><div>Emails</div><div class="s3-on">Settings</div></div>
+      <div>
+        <div class="s3-h">Automatic collection</div>
+        <div class="s3-state">
+          <div id="s3-state-off">Off. Click the icon on a page to collect it.</div>
+          <div id="s3-state-on">On. Every page you open is scanned.</div>
+        </div>
+      </div>
+      <div class="s3-button">
+        <div id="s3-btn-off" class="s3-btn-off">Turn on automatic collection</div>
+        <div id="s3-btn-on" class="s3-btn-on">Turn off automatic collection</div>
+      </div>
+      <div class="s3-card">
+        <div class="s3-row">
+          <div class="s3-sheet">Sheet 1</div>
+          <div class="s3-count"><strong id="s3-count">9</strong> <span id="s3-of">of 200 emails</span></div>
+        </div>
+        <div class="s3-track"><div id="s3-fill" class="s3-fill"></div></div>
+      </div>
+    </div>
+
+    <svg id="s3-cursor" class="s3-cursor" viewBox="0 0 34 46" aria-hidden="true"><path d="M3 2 L3 38 L12 29 L19 44 L26 41 L19 26 L31 26 Z" fill="#18233a" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round" /></svg>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    // Arrive: the panel slides in from the right, the first page settles on the left.
+    tl.fromTo("#s3-panel", { x: 120, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, ease: "expo.out" }, 0);
+    tl.fromTo("#s3-p1", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "power4.out" }, 0.15);
+    ["#s3-p2", "#s3-p3", "#s3-p4", "#s3-p5"].forEach((sel) => tl.set(sel, { opacity: 0 }, 0));
+    tl.set("#s3-state-on", { opacity: 0 }, 0);
+    tl.set("#s3-btn-on", { opacity: 0 }, 0);
+
+    // "Switch on automatic collection": the cursor clicks the button at 1.3s.
+    tl.fromTo("#s3-cursor", { x: 1700, y: 760, opacity: 0 }, { x: 1440, y: 372, opacity: 1, duration: 0.6, ease: "power2.inOut" }, 0.55);
+    tl.fromTo("#s3-btn-off", { opacity: 1 }, { opacity: 0, duration: 0.15, ease: "power2.out" }, 1.3);
+    tl.fromTo("#s3-btn-on", { opacity: 0 }, { opacity: 1, duration: 0.15, ease: "power2.out" }, 1.3);
+    tl.fromTo("#s3-state-off", { opacity: 1 }, { opacity: 0, duration: 0.15 }, 1.3);
+    tl.fromTo("#s3-state-on", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 1.35);
+    tl.fromTo("#s3-cursor", { opacity: 1 }, { opacity: 0, duration: 0.3, ease: "power2.in" }, 1.9);
+
+    // "and just keep browsing": pages whip past, one every ~0.9s.
+    const pages = ["#s3-p1", "#s3-p2", "#s3-p3", "#s3-p4", "#s3-p5"];
+    pages.slice(1).forEach((sel, i) => {
+      const at = 2.15 + i * 0.95;
+      tl.fromTo(pages[i], { x: 0, opacity: 1, filter: "blur(0px)" }, { x: -180, opacity: 0, filter: "blur(10px)", duration: 0.25, ease: "power3.in" }, at);
+      tl.fromTo(sel, { x: 220, opacity: 0, filter: "blur(12px)" }, { x: 0, opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "expo.out" }, at + 0.12);
+    });
+
+    // "Every address lands in a sheet": the count climbs with the pages.
+    const count = { v: 9 };
+    tl.fromTo(count, { v: 9 }, { v: 187, duration: 4.0, ease: "power1.inOut", onUpdate: () => { document.getElementById("s3-count").textContent = String(Math.round(count.v)); } }, 2.3);
+    tl.fromTo("#s3-fill", { scaleX: 9 / 200 }, { scaleX: 187 / 200, duration: 4.0, ease: "power1.inOut" }, 2.3);
+
+    // "two hundred to a sheet" (5.85s): the limit is the point.
+    tl.fromTo("#s3-of", { color: "#4a5672" }, { color: "#0f7a64", duration: 0.3, ease: "power2.out" }, 5.85);
+
+    tl.fromTo(["#s3-stage", "#s3-panel"], { opacity: 1, filter: "blur(0px)" }, { opacity: 0, filter: "blur(8px)", duration: 0.22, ease: "power2.in" }, 6.95);
+    window.__timelines["s3"] = tl;
+  </script>
+</template>

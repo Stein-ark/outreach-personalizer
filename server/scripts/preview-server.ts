@@ -29,24 +29,17 @@ const line = (block: string, key: string) => {
   return v && v !== '(unknown)' ? v : null;
 };
 
-/** Canned answers shaped like the real model's. Clearly not AI quality, only for exercising the UI. */
+/** Canned answer shaped like the real model's. Clearly not AI quality, only for exercising the UI. */
 const cannedProvider: AiProvider = {
   name: 'preview',
   model: 'preview-canned',
   async checkModel() {},
   async completeJson(req: JsonCompletionRequest) {
     await new Promise((r) => setTimeout(r, 900));
-    const usage = { prompt: 0, completion: 0, total: 0 };
-    if (req.schemaName === 'prospect_fields') {
-      const sentences = blockOf(req.user, 'PAGE TEXT').split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter((s) => s.length > 30);
-      return { content: JSON.stringify({ name: null, role: null, company: null, bio: sentences[0] ?? null, detail: sentences[1] ?? null, email: null }), usage };
-    }
-    const prospect = blockOf(req.user, 'PROSPECT');
-    const sender = blockOf(req.user, 'SENDER');
-    const first = line(prospect, 'name')?.split(' ')[0];
-    const detail = line(prospect, 'notable detail') ?? line(prospect, 'bio') ?? 'your recent work';
-    const body = `${first ? `Hi ${first},` : 'Hi there,'}\n\n${detail.replace(/\.$/, '')} is why I am writing. (Preview server: this is canned text, not a real draft.)\n\n${line(sender, 'raising for or offering') ?? ''}\n\nWould you be open to a 20 minute call in the next two weeks?\n\n${line(sender, 'name') ?? ''}`;
-    return { content: JSON.stringify({ subject: `${line(prospect, 'company') ?? 'Your work'} and ${line(sender, 'organisation') ?? 'us'}`, body, detailUsed: detail }), usage };
+    const convey = blockOf(req.user, 'WHAT TO CONVEY');
+    const name = line(blockOf(req.user, 'SENDER'), 'name') ?? '';
+    const body = `Hi there,\n\n${convey} (Preview server: this is canned text, not a real draft.)\n\nWould you be open to a short call next week?\n\nIf this isn't relevant, just reply and I won't follow up.\n\n${name}`;
+    return { content: JSON.stringify({ subject: 'A quick hello', body }), usage: { prompt: 0, completion: 0, total: 0 } };
   },
 };
 
@@ -69,13 +62,14 @@ const env = loadEnv({
 const logger = pino({ level: 'info' });
 const tokens = new TokenService(env.JWT_SECRET, env.ACCESS_TOKEN_TTL_SECONDS);
 const gateway = new AiGateway(cannedProvider, new AiLimiter({ rpm: 100, tpm: 1_000_000, rpd: 10_000, tpd: 10_000_000, maxWaitMs: 0 }), logger, { maxWaitMs: 0 });
+const base = loadBaseInstructions();
 const app = createApp({
   env,
   logger,
   tokens,
   sessions: new SessionService(tokens, env.REFRESH_TOKEN_TTL_DAYS),
   gateway,
-  base: loadBaseInstructions(),
+  base,
   limits: createRateLimits(),
 });
 app.listen(env.PORT, () => logger.warn({ port: env.PORT }, 'PREVIEW server: in-memory database and canned AI, not for real use'));

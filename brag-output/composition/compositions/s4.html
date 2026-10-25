@@ -1,0 +1,169 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    .s4-card {
+      position: absolute;
+      left: 150px;
+      top: 330px;
+      width: 780px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-rule);
+      border-radius: 20px;
+      box-shadow: 0 30px 80px rgba(24, 35, 58, 0.14);
+      padding: 40px 44px;
+    }
+    .s4-row {
+      position: relative;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      height: 56px;
+    }
+    .s4-swap {
+      position: relative;
+      width: 360px;
+      height: 56px;
+    }
+    .s4-swap div {
+      position: absolute;
+      left: 0;
+      top: 0;
+      font-size: 46px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .s4-count {
+      font-size: 32px;
+      color: var(--color-ink-soft);
+    }
+    .s4-count strong {
+      color: var(--color-ink);
+    }
+    .s4-track {
+      margin-top: 28px;
+      height: 18px;
+      border-radius: 9px;
+      background: var(--color-ground);
+      overflow: hidden;
+    }
+    .s4-fill {
+      height: 100%;
+      width: 100%;
+      background: var(--color-accent);
+      transform-origin: left center;
+    }
+    .s4-note {
+      margin-top: 24px;
+      font-size: 24px;
+      color: var(--color-ink-soft);
+    }
+    .s4-folder {
+      position: absolute;
+      left: 1060px;
+      top: 250px;
+      width: 720px;
+      height: 520px;
+      background: var(--color-surface);
+      border-radius: 20px;
+      box-shadow: 0 30px 80px rgba(24, 35, 58, 0.14), 0 0 0 1px var(--color-rule);
+      overflow: hidden;
+    }
+    .s4-folder-bar {
+      height: 84px;
+      background: var(--color-sheet);
+      border-bottom: 1px solid var(--color-rule);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 32px;
+      font-size: 25px;
+      font-weight: 600;
+    }
+    .s4-folder-bar span {
+      color: var(--color-ink-soft);
+      font-weight: 400;
+    }
+    .s4-file {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 656px;
+      height: 96px;
+      border-radius: 14px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-rule);
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      padding: 0 24px;
+      box-shadow: 0 16px 40px rgba(24, 35, 58, 0.14);
+    }
+    .s4-file-name {
+      font-size: 29px;
+      font-weight: 700;
+    }
+    .s4-file-meta {
+      margin-left: auto;
+      font-size: 23px;
+      color: var(--color-ink-soft);
+    }
+  </style>
+  <div id="root" data-composition-id="s4" data-width="1920" data-height="1080">
+    <div id="s4-card" class="s4-card">
+      <div class="s4-row">
+        <div class="s4-swap">
+          <div id="s4-name1">Sheet 1</div>
+          <div id="s4-name2">Sheet 2</div>
+        </div>
+        <div class="s4-count"><strong id="s4-count">187</strong> of 200 emails</div>
+      </div>
+      <div class="s4-track"><div id="s4-fill" class="s4-fill"></div></div>
+      <div class="s4-note">Saves itself to Downloads/Outreach Personalizer at 200 emails, then a new sheet starts.</div>
+    </div>
+
+    <div id="s4-folder" class="s4-folder">
+      <div class="s4-folder-bar">Downloads <span>›</span> Outreach Personalizer</div>
+    </div>
+
+    <!-- The file: lifts out of the sheet card and lands as the folder's first row. -->
+    <div id="s4-file" class="s4-file">
+      <svg width="48" height="58" viewBox="0 0 48 58" aria-hidden="true">
+        <path d="M4 2 H32 L46 16 V54 a3 3 0 0 1 -3 3 H5 a3 3 0 0 1 -3 -3 V5 a3 3 0 0 1 2 -3 Z" fill="#0f7a64" />
+        <path d="M32 2 V16 H46" fill="#e3f3ee" />
+        <path d="M11 26 H37 M11 35 H37 M11 44 H37 M20 22 V48 M29 22 V48" stroke="#ffffff" stroke-width="2.5" />
+      </svg>
+      <div class="s4-file-name">sheet-001.xlsx</div>
+      <div class="s4-file-meta">200 emails</div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo(["#s4-card", "#s4-folder"], { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.25, ease: "power4.out", stagger: 0.08 }, 0);
+    tl.set("#s4-name2", { opacity: 0 }, 0);
+
+    // "When a sheet fills up": 187 -> 200 and the bar completes.
+    const count = { v: 187 };
+    tl.fromTo(count, { v: 187 }, { v: 200, duration: 0.9, ease: "power2.out", onUpdate: () => { document.getElementById("s4-count").textContent = String(Math.round(count.v)); } }, 0.2);
+    tl.fromTo("#s4-fill", { scaleX: 187 / 200 }, { scaleX: 1, duration: 0.9, ease: "power2.out" }, 0.2);
+
+    // "it saves itself to your Downloads folder": the file lifts out and flies to the folder.
+    // beat-locked: lands at local 2.03s = 22.93s (strong cue), with the bell.
+    tl.fromTo("#s4-file", { x: 212, y: 470, scale: 0.6, opacity: 0 }, { x: 212, y: 420, scale: 0.9, opacity: 1, duration: 0.35, ease: "power3.out" }, 1.25);
+    tl.fromTo("#s4-file", { x: 212, y: 420, scale: 0.9 }, { x: 1092, y: 368, scale: 1, duration: 0.43, ease: "power3.inOut" }, 1.6);
+    tl.fromTo("#s4-folder", { scale: 1 }, { scale: 1.015, duration: 0.12, ease: "power2.out" }, 2.03);
+    tl.fromTo("#s4-folder", { scale: 1.015 }, { scale: 1, duration: 0.35, ease: "power3.out" }, 2.15);
+
+    // "and quietly starts the next one" (4.4s): Sheet 2, empty.
+    tl.fromTo("#s4-name1", { opacity: 1, filter: "blur(0px)" }, { opacity: 0, filter: "blur(6px)", duration: 0.18, ease: "power2.in" }, 4.4);
+    tl.fromTo("#s4-name2", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 4.5);
+    const reset = { v: 200 };
+    tl.fromTo(reset, { v: 200 }, { v: 0, duration: 0.5, ease: "power2.inOut", onUpdate: () => { document.getElementById("s4-count").textContent = String(Math.round(reset.v)); } }, 4.4);
+    tl.fromTo("#s4-fill", { scaleX: 1 }, { scaleX: 0, duration: 0.5, ease: "power2.inOut" }, 4.4);
+
+    tl.fromTo(["#s4-card", "#s4-folder", "#s4-file"], { opacity: 1, filter: "blur(0px)" }, { opacity: 0, filter: "blur(8px)", duration: 0.22, ease: "power2.in" }, 5.85);
+    window.__timelines["s4"] = tl;
+  </script>
+</template>

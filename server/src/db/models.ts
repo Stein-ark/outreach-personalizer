@@ -1,29 +1,17 @@
 /**
  * Mongoose models. Every collection that holds user data carries userId, and every query in the
  * repositories filters by it, so one user's data is never reachable from another user's token.
- * Raw page text is never stored, only the extracted fields.
+ * Only email addresses (with the page they were found on) and drafts are stored, never page text.
  */
 import mongoose, { Schema, type InferSchemaType, type Types } from 'mongoose';
-import { DEFAULT_DIALS, Goal, Length, ProspectSource, ProspectStatus, Tone } from '@op/shared';
+import { Length, ProspectStatus, Tone } from '@op/shared';
 
 const nullableString = { type: String, default: null };
 
 const SenderProfileSchema = new Schema(
   {
     name: nullableString,
-    role: nullableString,
-    organisation: nullableString,
-    offer: nullableString,
     link: nullableString,
-  },
-  { _id: false },
-);
-
-const DialsSchema = new Schema(
-  {
-    tone: { type: String, enum: Tone.options, default: DEFAULT_DIALS.tone },
-    length: { type: String, enum: Length.options, default: DEFAULT_DIALS.length },
-    goal: { type: String, enum: Goal.options, default: DEFAULT_DIALS.goal },
   },
   { _id: false },
 );
@@ -34,8 +22,11 @@ const UserSchema = new Schema(
     passwordHash: { type: String, required: true },
     settings: {
       sender: { type: SenderProfileSchema, default: () => ({}) },
-      defaultDials: { type: DialsSchema, default: () => ({}) },
-      footer: nullableString,
+    },
+    /** The spreadsheet new emails go into, and how many it holds so far. */
+    sheet: {
+      current: { type: Number, default: 1 },
+      count: { type: Number, default: 0 },
     },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
@@ -52,57 +43,40 @@ const RefreshSessionSchema = new Schema({
 // MongoDB deletes the document once expiresAt passes. Revoked tokens stay until then so reuse is still detected.
 RefreshSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-const VoiceSampleSchema = new Schema(
-  {
-    userId: { type: Schema.Types.ObjectId, required: true },
-    text: { type: String, required: true },
-  },
-  { timestamps: { createdAt: true, updatedAt: false } },
-);
-VoiceSampleSchema.index({ userId: 1, createdAt: 1 });
-
+/** One collected email address. */
 const ProspectSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, required: true },
-    name: nullableString,
-    role: nullableString,
-    company: nullableString,
-    bio: nullableString,
-    detail: nullableString,
-    email: nullableString,
+    email: { type: String, required: true },
     sourceUrl: nullableString,
     sourceTitle: nullableString,
-    sourceMode: { type: String, enum: ProspectSource.options, required: true },
-    /** Normalized page URL, set only for prospects drafted from a page or selection. One drafted prospect per page. */
-    pageKey: nullableString,
-    // Draft fields stay null for automatically collected prospects until the user drafts.
+    // Draft fields stay null until the user drafts the sheet.
     subject: nullableString,
     body: nullableString,
-    detailUsed: nullableString,
     tone: { type: String, enum: [...Tone.options, null], default: null },
     length: { type: String, enum: [...Length.options, null], default: null },
-    goal: { type: String, enum: [...Goal.options, null], default: null },
     baseInstructionsVersion: nullableString,
     model: nullableString,
-    status: { type: String, enum: ProspectStatus.options, default: 'drafted' },
-    /** Set once when first saved. MongoDB deletes the prospect after this moment (TTL index below). */
+    status: { type: String, enum: ProspectStatus.options, default: 'new' },
+    /** The spreadsheet this email belongs to. Set once, when first saved. */
+    sheet: { type: Number, required: true },
+    /** Set once when first saved. MongoDB deletes the email after this moment (TTL index below). */
     expiresAt: { type: Date, required: true },
   },
   { timestamps: true },
 );
-// Drafting the same page twice updates the existing prospect. Pasted text has no page key and is never deduplicated.
-ProspectSchema.index({ userId: 1, pageKey: 1 }, { unique: true, partialFilterExpression: { pageKey: { $type: 'string' } } });
-// One prospect per email address per user, so collecting a page again (or drafting someone already collected) merges.
-ProspectSchema.index({ userId: 1, email: 1 }, { unique: true, partialFilterExpression: { email: { $type: 'string' } } });
+// One entry per email address per user, so collecting a page again never duplicates anyone.
+ProspectSchema.index({ userId: 1, email: 1 }, { unique: true });
 ProspectSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 ProspectSchema.index({ userId: 1, status: 1, createdAt: -1, _id: -1 });
+ProspectSchema.index({ userId: 1, sheet: 1 });
 ProspectSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-/** Per user, per UTC day counters for the daily draft and extract caps. */
+/** Per user, per UTC day counters for the daily draft cap. */
 const UsageCounterSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, required: true },
   day: { type: String, required: true },
-  kind: { type: String, enum: ['draft', 'extract'], required: true },
+  kind: { type: String, enum: ['draft'], required: true },
   count: { type: Number, default: 0 },
   expiresAt: { type: Date, required: true },
 });
@@ -114,11 +88,10 @@ export type ProspectDoc = InferSchemaType<typeof ProspectSchema> & { _id: Types.
 
 export const User = mongoose.model('User', UserSchema);
 export const RefreshSession = mongoose.model('RefreshSession', RefreshSessionSchema);
-export const VoiceSample = mongoose.model('VoiceSample', VoiceSampleSchema);
 export const Prospect = mongoose.model('Prospect', ProspectSchema);
 export const UsageCounter = mongoose.model('UsageCounter', UsageCounterSchema);
 
 /** Builds every index declared above. Called at boot and in tests so the unique constraints exist before use. */
 export async function syncIndexes(): Promise<void> {
-  await Promise.all([User, RefreshSession, VoiceSample, Prospect, UsageCounter].map((m) => m.syncIndexes()));
+  await Promise.all([User, RefreshSession, Prospect, UsageCounter].map((m) => m.syncIndexes()));
 }

@@ -1,0 +1,213 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    .s5-composer {
+      position: absolute;
+      left: 110px;
+      top: 130px;
+      width: 780px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-rule);
+      border-radius: 20px;
+      box-shadow: 0 30px 80px rgba(24, 35, 58, 0.14);
+      padding: 40px 42px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .s5-h {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+    .s5-sub {
+      font-size: 23px;
+      color: var(--color-ink-soft);
+      line-height: 1.4;
+      margin-top: -8px;
+    }
+    .s5-label {
+      font-size: 25px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .s5-field {
+      min-height: 170px;
+      border: 1px solid var(--color-rule);
+      border-radius: 12px;
+      padding: 18px 20px;
+      font-size: 27px;
+      line-height: 1.45;
+      color: var(--color-ink);
+    }
+    .s5-dials {
+      display: flex;
+      gap: 22px;
+    }
+    .s5-dial {
+      flex: 1;
+    }
+    .s5-seg {
+      display: flex;
+      border: 1px solid var(--color-rule);
+      border-radius: 10px;
+      padding: 4px;
+      font-size: 22px;
+    }
+    .s5-seg div {
+      flex: 1;
+      text-align: center;
+      padding: 10px 0;
+      border-radius: 7px;
+      color: var(--color-ink-soft);
+    }
+    .s5-seg .s5-on {
+      background: var(--color-ink);
+      color: #ffffff;
+    }
+    .s5-btn {
+      height: 70px;
+      border-radius: 12px;
+      background: var(--color-accent);
+      color: #ffffff;
+      font-size: 27px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .s5-status {
+      font-size: 23px;
+      color: var(--color-ink-soft);
+    }
+    .s5-letter {
+      position: absolute;
+      left: 960px;
+      top: 110px;
+      width: 860px;
+      background: var(--color-sheet);
+      border: 1px solid var(--color-rule);
+      border-radius: 20px;
+      box-shadow: 0 30px 80px rgba(24, 35, 58, 0.14);
+      font-family: var(--font-letter), serif;
+      color: var(--color-ink);
+    }
+    .s5-subject {
+      padding: 30px 44px;
+      border-bottom: 1px solid var(--color-rule);
+      font-size: 40px;
+      font-weight: 600;
+    }
+    .s5-body {
+      padding: 34px 44px 40px;
+      font-size: 33px;
+      line-height: 1.45;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .s5-optout {
+      position: relative;
+      align-self: flex-start;
+    }
+    .s5-mark {
+      position: absolute;
+      left: -10px;
+      right: -10px;
+      top: 2px;
+      bottom: 2px;
+      border-radius: 8px;
+      background: var(--color-accent-soft);
+      border-left: 5px solid var(--color-accent);
+      transform-origin: left center;
+      z-index: -1;
+    }
+    .s5-cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 34px;
+      height: 46px;
+    }
+  </style>
+  <div id="root" data-composition-id="s5" data-width="1920" data-height="1080">
+    <div id="s5-composer" class="s5-composer">
+      <div class="s5-h">
+        <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L13.8 9.2 L21 11 L13.8 12.8 L12 20 L10.2 12.8 L3 11 L10.2 9.2 Z" fill="#0f7a64" /></svg>
+        Write a message (optional)
+      </div>
+      <div class="s5-sub">One message for every email in the sheet. It goes into the sheet's draft columns.</div>
+      <div>
+        <div class="s5-label">What do you want to say?</div>
+        <div id="s5-type" class="s5-field">I build booking websites for bakeries, and I'd like to offer a free review of their ordering page.</div>
+      </div>
+      <div class="s5-dials">
+        <div class="s5-dial">
+          <div class="s5-label">Tone</div>
+          <div class="s5-seg"><div>Formal</div><div class="s5-on">Friendly</div><div>Direct</div></div>
+        </div>
+        <div class="s5-dial">
+          <div class="s5-label">Length</div>
+          <div class="s5-seg"><div class="s5-on">Short</div><div>Medium</div></div>
+        </div>
+      </div>
+      <div id="s5-btn" class="s5-btn">Draft for sheet 1 (200 emails)</div>
+      <div id="s5-status" class="s5-status">Added to 200 emails in sheet 1.</div>
+    </div>
+
+    <div id="s5-letter" class="s5-letter">
+      <div class="s5-subject">A free look at your ordering page</div>
+      <div class="s5-body">
+        <div>Hi there,</div>
+        <div>I build booking websites for bakeries, and I'd like to offer you a free review of your ordering page.</div>
+        <div>Would you be open to a quick reply with a good time to look at it?</div>
+        <div id="s5-optout" class="s5-optout"><div id="s5-mark" class="s5-mark"></div>If this isn't relevant, just reply and I won't follow up.</div>
+        <div>Ada</div>
+      </div>
+    </div>
+
+    <svg id="s5-cursor" class="s5-cursor" viewBox="0 0 34 46" aria-hidden="true"><path d="M3 2 L3 38 L12 29 L19 44 L26 41 L19 26 L31 26 Z" fill="#18233a" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round" /></svg>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    // Split the message into characters once at build time, so it can type itself.
+    const field = document.getElementById("s5-type");
+    const text = field.textContent;
+    field.textContent = "";
+    const chars = [...text].map((ch) => {
+      const s = document.createElement("span");
+      s.textContent = ch;
+      field.appendChild(s);
+      return s;
+    });
+
+    // "Fancy saying something?": the composer rises in.
+    tl.fromTo("#s5-composer", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: "expo.out" }, 0.05);
+    tl.set(["#s5-letter", "#s5-status"], { opacity: 0 }, 0);
+
+    // "Write it once": the message types itself (0.9s to 2.55s).
+    tl.fromTo(chars, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: 1.65 / chars.length, ease: "none" }, 0.9);
+
+    // "The A.I. drafts": the cursor clicks Draft at 2.88s (sound at 29.88s).
+    tl.fromTo("#s5-cursor", { x: 640, y: 980, opacity: 0 }, { x: 520, y: 760, opacity: 1, duration: 0.55, ease: "power2.inOut" }, 2.25);
+    tl.fromTo("#s5-btn", { scale: 1 }, { scale: 0.97, duration: 0.08, ease: "power2.in" }, 2.86);
+    tl.fromTo("#s5-btn", { scale: 0.97 }, { scale: 1, duration: 0.25, ease: "power3.out" }, 2.94);
+    tl.fromTo("#s5-cursor", { opacity: 1 }, { opacity: 0, duration: 0.3, ease: "power2.in" }, 3.5);
+
+    // "one message for the whole sheet": the letter arrives, and the sheet is updated.
+    tl.fromTo("#s5-letter", { opacity: 0, x: 60, filter: "blur(10px)" }, { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.55, ease: "expo.out" }, 3.3);
+    tl.fromTo("#s5-status", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" }, 3.95);
+
+    // "opt-out line included" (6.0s): the line is marked.
+    tl.fromTo("#s5-mark", { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 1, duration: 0.45, ease: "power3.out" }, 6.0);
+
+    tl.fromTo(["#s5-composer", "#s5-letter"], { opacity: 1, filter: "blur(0px)" }, { opacity: 0, filter: "blur(8px)", duration: 0.22, ease: "power2.in" }, 7.25);
+    window.__timelines["s5"] = tl;
+  </script>
+</template>

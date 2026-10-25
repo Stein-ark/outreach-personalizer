@@ -8,31 +8,24 @@ export const APP_NAME = 'Outreach Personalizer';
 
 export const API_PREFIX = '/api/v1';
 
-/** Maximum characters of page, selected or pasted text sent to the backend (keeps AI calls inside the token budget). */
-export const PAGE_TEXT_CAP = 6000;
-
-export const VOICE_SAMPLE_MAX_COUNT = 3;
-export const VOICE_SAMPLE_MAX_CHARS = 1500;
-
 /** Upper bounds for user editable fields, so a single request can never blow the token budget. */
 export const FIELD_LIMITS = {
   name: 120,
-  role: 160,
-  company: 160,
-  bio: 600,
-  detail: 400,
   email: 254,
   subject: 200,
   body: 5000,
-  footer: 500,
-  senderOffer: 400,
+  /** What the user wants their message to say, typed when drafting. */
+  message: 1000,
   url: 2048,
   title: 300,
   search: 100,
 } as const;
 
-/** Maximum people saved from one page by automatic collection. */
-export const COLLECT_MAX_PEOPLE = 50;
+/** Maximum email addresses saved from one page. */
+export const COLLECT_MAX_EMAILS = 50;
+
+/** Emails per spreadsheet. The sheet downloads by itself when full, and a new one starts. */
+export const SHEET_SIZE = 200;
 
 /** Page size bounds for cursor pagination on GET /prospects. */
 export const PAGE_SIZE_DEFAULT = 25;

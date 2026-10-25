@@ -1,34 +1,33 @@
 /**
- * Prospect repository. Every function takes the authenticated userId and puts it in the query filter itself,
+ * Saved email addresses. Every function takes the authenticated userId and puts it in the query filter itself,
  * so an id supplied by the client can only ever match the caller's own documents.
  */
 import { Types } from 'mongoose';
-import type { CollectRequest, CollectResponse, DraftOutput, DraftRequest, Prospect as ProspectDto, ProspectFilter, ProspectListQuery, ProspectPatch } from '@op/shared';
+import type {
+  CollectRequest,
+  CollectResponse,
+  DraftOutput,
+  Prospect as ProspectDto,
+  ProspectFilter,
+  ProspectListQuery,
+  ProspectPatch,
+  SheetDraftRequest,
+} from '@op/shared';
 import { normalizeUrl } from '@op/shared';
 import { Prospect, type ProspectDoc } from '../db/models.js';
 import { AppError } from '../lib/errors.js';
+import { reserveSheetSlots } from './sheets.js';
 
 export function toDto(doc: ProspectDoc): ProspectDto {
   return {
     id: String(doc._id),
-    name: doc.name ?? null,
-    role: doc.role ?? null,
-    company: doc.company ?? null,
-    bio: doc.bio ?? null,
-    detail: doc.detail ?? null,
-    email: doc.email ?? null,
+    email: doc.email,
     sourceUrl: doc.sourceUrl ?? null,
     sourceTitle: doc.sourceTitle ?? null,
-    sourceMode: doc.sourceMode,
     subject: doc.subject ?? null,
     body: doc.body ?? null,
-    detailUsed: doc.detailUsed ?? null,
-    tone: doc.tone ?? null,
-    length: doc.length ?? null,
-    goal: doc.goal ?? null,
-    baseInstructionsVersion: doc.baseInstructionsVersion ?? null,
-    model: doc.model ?? null,
     status: doc.status,
+    sheet: doc.sheet,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
     expiresAt: doc.expiresAt.toISOString(),
@@ -36,11 +35,11 @@ export function toDto(doc: ProspectDoc): ProspectDto {
 }
 
 const gone = () =>
-  new AppError(404, 'NOT_FOUND', 'This prospect is no longer saved. Saved prospects are deleted a few hours after they are added, so export your list before then.');
+  new AppError(404, 'NOT_FOUND', 'This email is no longer saved. Saved emails are deleted a few hours after they are added, after their sheet is downloaded.');
 
 /**
  * MongoDB's TTL monitor deletes expired documents about once a minute, so every read also excludes anything already
- * past its expiry. Users never see a prospect after the moment they were told it would be deleted.
+ * past its expiry. Users never see an email after the moment they were told it would be deleted.
  */
 const live = () => ({ expiresAt: { $gt: new Date() } });
 
@@ -49,10 +48,11 @@ const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function filterQuery(userId: string, filter: ProspectFilter): Record<string, unknown> {
   const q: Record<string, unknown> = { userId: new Types.ObjectId(userId), ...live() };
   if (filter.status) q.status = filter.status;
+  if (filter.sheet) q.sheet = filter.sheet;
   if (filter.q) {
     // Escaped, so search input is matched literally and cannot inject regex operators.
     const re = new RegExp(escapeRegex(filter.q), 'i');
-    q.$or = [{ name: re }, { company: re }, { role: re }, { email: re }, { sourceTitle: re }];
+    q.$or = [{ email: re }, { sourceTitle: re }];
   }
   return q;
 }
@@ -99,11 +99,11 @@ export async function listProspects(userId: string, query: ProspectListQuery) {
   return { items: page.map(toDto), nextCursor: docs.length > query.limit && last ? encodeCursor(last) : null };
 }
 
-/** Up to this many rows go into one export, newest first. */
+/** Up to this many rows go into one export, oldest first (the order they were collected). */
 export const EXPORT_ROW_LIMIT = 5000;
 
 export async function prospectsForExport(userId: string, filter: ProspectFilter): Promise<ProspectDto[]> {
-  const docs = await Prospect.find(filterQuery(userId, filter)).sort({ createdAt: -1, _id: -1 }).limit(EXPORT_ROW_LIMIT).lean<ProspectDoc[]>();
+  const docs = await Prospect.find(filterQuery(userId, filter)).sort({ createdAt: 1, _id: 1 }).limit(EXPORT_ROW_LIMIT).lean<ProspectDoc[]>();
   return docs.map(toDto);
 }
 
@@ -115,18 +115,8 @@ export async function getProspect(userId: string, id: string): Promise<ProspectD
   return toDto(doc);
 }
 
-const isDuplicateKey = (err: unknown) => (err as { code?: number } | null)?.code === 11000;
-
-const emailTaken = () => new AppError(409, 'CONFLICT', 'Another saved prospect already has this email address.');
-
 export async function updateProspect(userId: string, id: string, patch: ProspectPatch): Promise<ProspectDto> {
-  let doc;
-  try {
-    doc = await Prospect.findOneAndUpdate(ownFilter(userId, id), { $set: patch }, { returnDocument: 'after' }).lean<ProspectDoc>();
-  } catch (err) {
-    if (isDuplicateKey(err)) throw emailTaken();
-    throw err;
-  }
+  const doc = await Prospect.findOneAndUpdate(ownFilter(userId, id), { $set: patch }, { returnDocument: 'after' }).lean<ProspectDoc>();
   if (!doc) throw gone();
   return toDto(doc);
 }
@@ -141,96 +131,65 @@ export async function deleteAllProspects(userId: string): Promise<number> {
   return res.deletedCount;
 }
 
-export interface SaveDraftInput {
-  request: DraftRequest;
-  draft: DraftOutput;
-  baseInstructionsVersion: string;
-  model: string;
-  /** How long a newly saved prospect is kept. Re-drafting a saved page does not extend it. */
-  ttlMs: number;
-}
-
-/** Saves the drafted prospect. A page that was saved before (same normalized URL) is updated in place. */
 /**
- * Saves a drafted prospect. It merges into the user's existing live prospect for the same page (drafted before) or the
- * same email (for example one collected automatically), otherwise it creates a new one. The expiry is set only on
- * creation, so a merge never extends it.
+ * Saves the email addresses found on one page. Each new address takes the next slot in the user's current sheet.
+ * Addresses already saved are left untouched, so visiting a page again never duplicates anyone or loses a draft.
  */
-export async function saveDraftedProspect(userId: string, input: SaveDraftInput): Promise<ProspectDto> {
-  const { request, draft } = input;
-  const sourceUrl = request.source.url ? normalizeUrl(request.source.url) : null;
-  // Only a whole page read is one prospect per page. A selection or a collected person may share a page with others.
-  const pageKey = request.source.mode === 'page' ? sourceUrl : null;
-  const values = {
-    ...request.fields,
-    sourceUrl,
-    sourceTitle: request.source.title,
-    sourceMode: request.source.mode,
-    pageKey,
-    subject: draft.subject,
-    body: draft.body,
-    detailUsed: draft.detailUsed,
-    ...request.dials,
-    baseInstructionsVersion: input.baseInstructionsVersion,
-    model: input.model,
-    status: 'drafted' as const,
-  };
-  const owner = new Types.ObjectId(userId);
-  const keys = [...(pageKey ? [{ pageKey }] : []), ...(request.fields.email ? [{ email: request.fields.email }] : [])];
-
-  // Expired copies the TTL monitor has not removed yet would otherwise be revived with their old expiry.
-  if (keys.length) await Prospect.deleteMany({ userId: owner, $or: keys, expiresAt: { $lte: new Date() } });
-
-  const existing = keys.length ? await Prospect.findOne({ userId: owner, $or: keys }).lean<ProspectDoc>() : null;
-  try {
-    if (existing) {
-      const doc = await Prospect.findOneAndUpdate({ _id: existing._id, userId: owner }, { $set: values }, { returnDocument: 'after' }).lean<ProspectDoc>();
-      return toDto(doc!);
-    }
-    const created = await Prospect.create({ userId: owner, ...values, expiresAt: new Date(Date.now() + input.ttlMs) });
-    return toDto(created.toObject() as ProspectDoc);
-  } catch (err) {
-    // The page and the email matched two different saved prospects. Keep the page's one and leave the email to the user.
-    if (isDuplicateKey(err)) throw emailTaken();
-    throw err;
-  }
-}
-
-/**
- * Automatic collection: saves each person (email plus nearby name) from one page as a "new" prospect. People already
- * saved (same email) are left untouched, so collecting a page again never overwrites drafts or edits.
- */
-export async function collectProspects(userId: string, req: CollectRequest, ttlMs: number): Promise<CollectResponse> {
+export async function collectEmails(userId: string, req: CollectRequest, ttlMs: number): Promise<CollectResponse> {
   const owner = new Types.ObjectId(userId);
   const sourceUrl = normalizeUrl(req.url);
-  const unique = [...new Map(req.people.map((p) => [p.email, p])).values()];
-  await Prospect.deleteMany({ userId: owner, email: { $in: unique.map((p) => p.email) }, expiresAt: { $lte: new Date() } });
+  const all = [...new Set(req.emails)];
+  // Expired entries the TTL monitor has not removed yet must not count as "already saved".
+  await Prospect.deleteMany({ userId: owner, email: { $in: all }, expiresAt: { $lte: new Date() } });
+  const known = new Set((await Prospect.find({ userId: owner, email: { $in: all } }, { email: 1 }).lean()).map((d) => d.email));
+  const fresh = all.filter((e) => !known.has(e));
+  if (fresh.length === 0) return { added: 0, alreadySaved: all.length };
+
+  const sheets = await reserveSheetSlots(userId, fresh.length);
   const expiresAt = new Date(Date.now() + ttlMs);
   const result = await Prospect.bulkWrite(
-    unique.map((p) => ({
+    fresh.map((email, i) => ({
       updateOne: {
-        filter: { userId: owner, email: p.email },
+        filter: { userId: owner, email },
         update: {
-          $setOnInsert: {
-            userId: owner,
-            email: p.email,
-            name: p.name,
-            role: null,
-            company: null,
-            bio: null,
-            detail: null,
-            sourceUrl,
-            sourceTitle: req.title,
-            sourceMode: 'auto',
-            pageKey: null,
-            status: 'new',
-            expiresAt,
-          },
+          $setOnInsert: { userId: owner, email, sourceUrl, sourceTitle: req.title, status: 'new', sheet: sheets[i]!, expiresAt },
         },
         upsert: true,
       },
     })),
     { ordered: false },
   );
-  return { added: result.upsertedCount, alreadySaved: unique.length - result.upsertedCount };
+  return { added: result.upsertedCount, alreadySaved: all.length - result.upsertedCount };
+}
+
+export interface SheetDraftInput {
+  draft: DraftOutput;
+  dials: SheetDraftRequest['dials'];
+  baseInstructionsVersion: string;
+  model: string;
+}
+
+/**
+ * Puts one draft on every live email in a sheet that has not been contacted yet. Emails already marked sent or
+ * replied keep the message they were sent with.
+ */
+export async function applySheetDraft(userId: string, sheet: number, input: SheetDraftInput): Promise<number> {
+  const res = await Prospect.updateMany(
+    { userId: new Types.ObjectId(userId), sheet, status: { $in: ['new', 'drafted'] }, ...live() },
+    {
+      $set: {
+        subject: input.draft.subject,
+        body: input.draft.body,
+        ...input.dials,
+        baseInstructionsVersion: input.baseInstructionsVersion,
+        model: input.model,
+        status: 'drafted',
+      },
+    },
+  );
+  return res.modifiedCount;
+}
+
+export async function countDraftable(userId: string, sheet: number): Promise<number> {
+  return Prospect.countDocuments({ userId: new Types.ObjectId(userId), sheet, status: { $in: ['new', 'drafted'] }, ...live() });
 }

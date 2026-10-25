@@ -39,7 +39,6 @@ const EnvSchema = z
     AI_REASONING_EFFORT: z.enum(['low', 'medium', 'high', 'none']).default('low'),
     AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
     AI_MAX_OUTPUT_TOKENS_DRAFT: z.coerce.number().int().min(100).max(4000).default(1200),
-    AI_MAX_OUTPUT_TOKENS_EXTRACT: z.coerce.number().int().min(100).max(4000).default(800),
 
     /** Shared limiter, sized below the provider's published limits (Groq free tier, gpt-oss-120b). */
     AI_LIMIT_RPM: z.coerce.number().int().min(1).default(25),
@@ -49,9 +48,9 @@ const EnvSchema = z
     /** How long a request may queue for limiter capacity before the user gets a "try again in N seconds" error. */
     AI_LIMIT_MAX_WAIT_MS: z.coerce.number().int().min(0).max(60_000).default(15_000),
 
-    DAILY_DRAFT_CAP: z.coerce.number().int().min(1).default(100),
-    DAILY_EXTRACT_CAP: z.coerce.number().int().min(1).default(200),
-    /** Saved prospects and drafts are deleted this many hours after they are first saved. Users export before then. */
+    /** Sheet drafts per user per UTC day. Each one is a single AI call however many emails the sheet holds. */
+    DAILY_DRAFT_CAP: z.coerce.number().int().min(1).default(50),
+    /** Saved emails and drafts are deleted this many hours after they are first saved. Sheets download before then. */
     PROSPECT_TTL_HOURS: z.coerce.number().min(0.25).max(720).default(3),
 
     /** Skip the boot time model availability check (tests only). */

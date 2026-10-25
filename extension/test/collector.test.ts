@@ -1,9 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
-import { CollectedPerson } from '@op/shared';
-import { collectPeople, mayCollect } from '../src/lib/collector';
-import { emailChoicesFrom, emailMatchesName } from '../src/lib/deterministic';
+import { describe, expect, it } from 'vitest';
+import { collectEmailsInjected, mayCollect } from '../src/lib/collector';
 
 function loadHtml(html: string) {
   document.open();
@@ -11,17 +9,12 @@ function loadHtml(html: string) {
   document.close();
 }
 
-describe('collectPeople on a team page', () => {
-  let people: ReturnType<typeof collectPeople>;
-  const byEmail = (e: string) => people.find((p) => p.email === e);
+describe('collectEmailsInjected on a team page', () => {
+  loadHtml(readFileSync(join(process.cwd(), 'test/fixtures/team.html'), 'utf8'));
+  const emails = collectEmailsInjected(50);
 
-  beforeAll(() => {
-    loadHtml(readFileSync(join(process.cwd(), 'test/fixtures/team.html'), 'utf8'));
-    people = collectPeople(document);
-  });
-
-  it('finds every visible address, from mailto links and from plain text', () => {
-    expect(people.map((p) => p.email).sort()).toEqual(
+  it('finds every visible address, from mailto links and from plain text, lowercased and without duplicates', () => {
+    expect([...emails].sort()).toEqual(
       [
         'ana@x.example',
         'bo@x.example',
@@ -35,34 +28,54 @@ describe('collectPeople on a team page', () => {
     );
   });
 
-  it('pairs each address with the name on its card', () => {
-    expect(byEmail('maya@fernwood.example')?.name).toBe('Maya Ortiz');
-    expect(byEmail('sam.reid@fernwood.example')?.name).toBe('Sam Reid');
-    expect(byEmail('lena@fernwood.example')?.name).toBe('Lena Park');
-  });
-
-  it('leaves shared inboxes unnamed', () => {
-    expect(byEmail('press@fernwood.example')?.name).toBeNull();
-    expect(byEmail('info@fernwood.example')?.name).toBeNull();
-  });
-
   it('skips hidden addresses and image file names', () => {
-    expect(byEmail('hidden.person@fernwood.example')).toBeUndefined();
-    expect(people.some((p) => p.email.endsWith('.png'))).toBe(false);
+    expect(emails).not.toContain('hidden.person@fernwood.example');
+    expect(emails.some((e) => e.endsWith('.png'))).toBe(false);
   });
 
-  it('names people listed on one line with their address, without borrowing a neighbour', () => {
-    expect(byEmail('ana@x.example')?.name).toBe('Ana Diaz');
-    expect(byEmail('bo@x.example')?.name).toBe('Bo Chen');
+  it('returns only addresses, never page text', () => {
+    for (const e of emails) expect(e).toMatch(/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/);
+  });
+});
+
+describe('collectEmailsInjected on search results (addresses split by highlighted words)', () => {
+  it('rebuilds addresses that the page splits into pieces, and never invents one from a cut off address', () => {
+    loadHtml(readFileSync(join(process.cwd(), 'test/fixtures/search-results.html'), 'utf8'));
+    expect(collectEmailsInjected(50)).toEqual([
+      'newparadisebakery.usa@gmail.com',
+      'thesaltysourdough@gmail.com',
+      'martinsbakery.alison@gmail.com',
+      'quinsflyrixhbakery@gmail.com',
+      'bakeryyummyhouse@gmail.com',
+      'almabakery@yahoo.com',
+      'blackheartbakeryandgifts@gmail.com',
+      'erbysbakery@gmail.com',
+      'bigyummybakery@gmail.com',
+    ]);
   });
 
-  it('produces only data the server contract accepts', () => {
-    for (const p of people) expect(CollectedPerson.safeParse(p).success).toBe(true);
+  it('keeps separate blocks apart, so text from the next line never joins an address', () => {
+    loadHtml('<main><p>a@x.example</p><p>clinic team</p><div>b@y.example</div><div>more</div></main>');
+    expect(collectEmailsInjected(50)).toEqual(['a@x.example', 'b@y.example']);
   });
+});
 
-  it('caps a page at 50 people', () => {
+describe('collectEmailsInjected limits', () => {
+  it('stops at the cap', () => {
     loadHtml(`<main>${Array.from({ length: 70 }, (_, i) => `<p>p${i}@many.example</p>`).join('')}</main>`);
-    expect(collectPeople(document)).toHaveLength(50);
+    expect(collectEmailsInjected(50)).toHaveLength(50);
+  });
+
+  it('ignores addresses inside scripts, styles and form fields', () => {
+    loadHtml('<main><script>var a="s@x.example"</script><textarea>t@x.example</textarea><p>ok@x.example</p></main>');
+    expect(collectEmailsInjected(50)).toEqual(['ok@x.example']);
+  });
+
+  it('is self-contained, so Chrome can inject it into a page on its own', () => {
+    // Injected functions are serialized: they must not reference anything outside their own body.
+    const source = collectEmailsInjected.toString();
+    expect(source).not.toMatch(/\b(import|require)\b/);
+    expect(source).not.toMatch(/BLOCKED_HOSTS|NEVER_COLLECT_HOSTS|COLLECT_MAX_EMAILS/);
   });
 });
 
@@ -87,21 +100,5 @@ describe('mayCollect', () => {
       expect(mayCollect(document, { protocol: 'https:', hostname })).toBe(false);
     }
     expect(mayCollect(document, { protocol: 'chrome:', hostname: 'settings' })).toBe(false);
-  });
-});
-
-describe('email choices for one click mode', () => {
-  const base = { url: '', title: '', description: null, og: { title: null, description: null, siteName: null, type: null }, jsonLd: [], headings: [], textTruncated: false };
-
-  it('lists every address on the page, mailto first, without duplicates or image names', () => {
-    const choices = emailChoicesFrom({ ...base, mailtos: ['maya@f.example'], text: 'Write to MAYA@f.example or sam@f.example. logo@2x.png' });
-    expect(choices).toEqual(['maya@f.example', 'sam@f.example']);
-  });
-
-  it('flags the address that matches the name', () => {
-    expect(emailMatchesName('maya@f.example', 'Maya Ortiz')).toBe(true);
-    expect(emailMatchesName('m.ortiz@f.example', 'Maya Ortiz')).toBe(true);
-    expect(emailMatchesName('sam@f.example', 'Maya Ortiz')).toBe(false);
-    expect(emailMatchesName('info@f.example', null)).toBe(false);
   });
 });

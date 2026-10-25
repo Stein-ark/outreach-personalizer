@@ -60,24 +60,25 @@ export class AiLimiter {
   /** Reserves synchronously if there is room now, otherwise reports how long until there is. */
   tryReserve(estimatedTokens: number): { reservation: Reservation } | { waitMs: number } {
     const now = this.now();
+    const limits = this.config;
     // A single request larger than the whole minute budget could never fit, so it is capped to the budget.
     const est = Math.min(Math.max(1, Math.round(estimatedTokens)), this.config.tpm);
     this.rollDay(now);
     this.window = this.window.filter((e) => e.t > now - MINUTE);
 
-    if (this.day.requests + 1 > this.config.rpd || this.day.tokens + est > this.config.tpd) {
+    if (this.day.requests + 1 > limits.rpd || this.day.tokens + est > limits.tpd) {
       return { waitMs: msUntilNextUtcDay(now) };
     }
-    if (this.window.length + 1 > this.config.rpm) {
+    if (this.window.length + 1 > limits.rpm) {
       return { waitMs: this.window[0]!.t + MINUTE - now };
     }
     const used = this.window.reduce((sum, e) => sum + e.tokens, 0);
-    if (used + est > this.config.tpm) {
+    if (used + est > limits.tpm) {
       // Find the earliest moment enough old entries have aged out to make room.
       let freed = 0;
       for (const e of this.window) {
         freed += e.tokens;
-        if (used - freed + est <= this.config.tpm) return { waitMs: e.t + MINUTE - now };
+        if (used - freed + est <= limits.tpm) return { waitMs: e.t + MINUTE - now };
       }
     }
 

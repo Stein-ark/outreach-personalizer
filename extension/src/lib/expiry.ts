@@ -1,5 +1,5 @@
 /**
- * Saved prospects are deleted by the server a few hours after they are first saved (PROSPECT_TTL_HOURS).
+ * Saved emails are deleted by the server a few hours after they are first saved (PROSPECT_TTL_HOURS).
  * These helpers show how long is left so users export in time.
  */
 import { useEffect, useState } from 'react';
@@ -24,13 +24,4 @@ export function formatLeft(ms: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m ? `${h} h ${m} min` : `${h} h`;
-}
-
-export const formatClock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-/** Whole hours (or minutes) between saving and deletion, for copy like "kept for 3 hours". */
-export function retentionLabel(createdAt: string, expiresAt: string): string {
-  const ms = Date.parse(expiresAt) - Date.parse(createdAt);
-  const hours = Math.round(ms / 3_600_000);
-  return hours >= 1 ? `${hours} hour${hours === 1 ? '' : 's'}` : `${Math.round(ms / 60_000)} minutes`;
 }

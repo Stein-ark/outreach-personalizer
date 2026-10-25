@@ -1,25 +1,23 @@
 /**
- * Panel root: auth gate, the three main views and the global offline notice.
- * List and Settings are lazy loaded so the first paint only ships the Prospect view.
+ * Panel root: auth gate, the two views (Emails and Settings) and the global offline notice.
+ * Both views are lazy loaded so the first paint only ships the sign in check.
  */
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { List, PenLine, Settings as SettingsIcon, WifiOff } from 'lucide-react';
+import { Mail, Settings as SettingsIcon, WifiOff } from 'lucide-react';
 import { APP_NAME } from '@op/shared';
 import { REFRESH_KEY, StoredRefresh } from './lib/auth';
 import { useStored } from './lib/storage';
 import { Banner, Spinner } from './components/ui';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SignInView } from './views/SignInView';
-import { ProspectView } from './views/ProspectView';
 
-const ListView = lazy(() => import('./views/ListView'));
+const EmailsView = lazy(() => import('./views/EmailsView'));
 const SettingsView = lazy(() => import('./views/SettingsView'));
 
-export type Tab = 'prospect' | 'list' | 'settings';
+export type Tab = 'emails' | 'settings';
 
-const TABS: { id: Tab; label: string; icon: typeof List }[] = [
-  { id: 'prospect', label: 'Prospect', icon: PenLine },
-  { id: 'list', label: 'Saved', icon: List },
+const TABS: { id: Tab; label: string; icon: typeof Mail }[] = [
+  { id: 'emails', label: 'Emails', icon: Mail },
   { id: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 
@@ -40,7 +38,7 @@ function useOnline(): boolean {
 
 export function App() {
   const auth = useStored('local', REFRESH_KEY, StoredRefresh);
-  const [tab, setTab] = useState<Tab>('prospect');
+  const [tab, setTab] = useState<Tab>('emails');
   const online = useOnline();
   // Distinguishes "signed out by the user" from "session expired" for the sign in message.
   const wasSignedIn = useRef(false);
@@ -55,7 +53,7 @@ export function App() {
     } else if (auth.loaded && wasSignedIn.current) {
       setExpired(!signedOutOnPurpose.current);
       wasSignedIn.current = false;
-      setTab('prospect');
+      setTab('emails');
     }
   }, [auth.value, auth.loaded]);
 
@@ -84,19 +82,14 @@ export function App() {
       <main className="flex flex-1 flex-col gap-3 p-3">
         {!online ? (
           <Banner tone="warn" title="You're offline">
-            <span className="inline-flex items-center gap-1.5"><WifiOff aria-hidden className="size-3.5" /> Reading pages still works. Extracting, drafting and saving wait until you reconnect.</span>
+            <span className="inline-flex items-center gap-1.5"><WifiOff aria-hidden className="size-3.5" /> Saving and drafting wait until you reconnect.</span>
           </Banner>
         ) : null}
         {/* Each section has its own boundary (and the lazy ones their own loader), so one failing leaves the rest usable. */}
-        {tab === 'prospect' ? (
-          <ErrorBoundary section="Prospect">
-            <ProspectView onOpenSettings={() => setTab('settings')} />
-          </ErrorBoundary>
-        ) : null}
-        {tab === 'list' ? (
-          <ErrorBoundary section="Saved">
+        {tab === 'emails' ? (
+          <ErrorBoundary section="Emails">
             <Suspense fallback={<Spinner label="Loading" />}>
-              <ListView onOpened={() => setTab('prospect')} />
+              <EmailsView />
             </Suspense>
           </ErrorBoundary>
         ) : null}

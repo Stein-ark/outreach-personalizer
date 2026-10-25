@@ -2,8 +2,8 @@
  * .xlsx export with SheetJS Community Edition (write only, nothing is ever parsed).
  *
  * Every cell is written as an explicit string cell so nothing is interpreted as a number, date or formula,
- * and every value is neutralized against spreadsheet formula injection as well, because prospect data comes from
- * untrusted web pages and AI output and the user may later re-save the sheet as CSV.
+ * and every value is neutralized against spreadsheet formula injection as well, because page titles come from
+ * untrusted web pages and drafts from AI output, and the user may later re-save the sheet as CSV.
  */
 import * as XLSX from 'xlsx';
 import type { Prospect } from '@op/shared';
@@ -25,14 +25,11 @@ export function neutralizeCell(value: string): string {
 }
 
 export const EXPORT_COLUMNS: { header: string; width: number; value: (p: Prospect) => string | null }[] = [
-  { header: 'Name', width: 24, value: (p) => p.name },
-  { header: 'Role', width: 24, value: (p) => p.role },
-  { header: 'Company', width: 24, value: (p) => p.company },
-  { header: 'Email', width: 28, value: (p) => p.email },
-  { header: 'Status', width: 14, value: (p) => (p.status === 'new' ? 'not contacted' : p.status) },
+  { header: 'Email', width: 34, value: (p) => p.email },
+  { header: 'Status', width: 12, value: (p) => (p.status === 'new' ? 'not contacted' : p.status) },
   { header: 'Date added', width: 18, value: (p) => p.createdAt.slice(0, 16).replace('T', ' ') },
+  { header: 'Found on', width: 36, value: (p) => p.sourceTitle },
   { header: 'Source URL', width: 40, value: (p) => p.sourceUrl },
-  { header: 'Detail used', width: 40, value: (p) => p.detailUsed },
   { header: 'Draft subject', width: 36, value: (p) => p.subject },
   { header: 'Draft body', width: 100, value: (p) => p.body },
 ];

@@ -16,22 +16,25 @@ export default defineConfig({
     plugins: [tailwindcss()],
     resolve: { conditions: ['source'] },
     build: { sourcemap: false },
+    // Shown in Settings, so it is obvious which build the browser is running.
+    define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   }),
   manifest: ({ mode }) => {
     const origin = apiOrigin();
     const key = process.env.WXT_EXTENSION_KEY;
     return {
       name: APP_NAME,
-      description: 'Drafts a personalized fundraising outreach email from the page you are viewing, when you ask it to.',
+      description: 'Collects email addresses from the pages you visit into spreadsheets of 200, and drafts a message for them if you want.',
       minimum_chrome_version: '116',
-      permissions: ['storage', 'activeTab', 'scripting', 'sidePanel', 'contextMenus'],
+      // downloads: saves finished sheets to the Downloads folder. alarms: checks once a minute whether a sheet is ready.
+      permissions: ['storage', 'activeTab', 'scripting', 'sidePanel', 'contextMenus', 'downloads', 'alarms'],
       host_permissions: [`${origin}/*`],
       // Requested only when the user turns on automatic collection in Settings, and removed when they turn it off.
       optional_host_permissions: ['https://*/*', 'http://*/*'],
       // An action with no popup, so clicking the icon fires action.onClicked (a user gesture that grants activeTab).
-      action: { default_title: `Open ${APP_NAME} for this page` },
+      action: { default_title: `Collect emails on this page` },
       commands: {
-        _execute_action: { suggested_key: { default: 'Alt+Shift+O' }, description: 'Draft outreach for this page' },
+        _execute_action: { suggested_key: { default: 'Alt+Shift+O' }, description: 'Collect emails on this page' },
       },
       ...(key ? { key } : {}),
       ...(mode === 'production'

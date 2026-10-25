@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "historyId": "2b922acd-b0ff-40e0-a0e9-0b50797d5b31",
+  "currentRevision": null,
+  "pendingChanges": false,
+  "files": {
+    "assets/sfx/impact/impactBell_heavy_000.ogg": {
+      "hash": "94b8bb5f2d43ab65e4bcc32b28562416e9bc2c51d9fd4be1e333660ee52f977f",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/94/94b8bb5f2d43ab65e4bcc32b28562416e9bc2c51d9fd4be1e333660ee52f977f"
+    },
+    "assets/sfx/interface/drop_002.ogg": {
+      "hash": "4ac4d1cef7e936965cbf795852ca2020300b9e2ba7daa59f2bf4f1f7bf416218",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/4a/4ac4d1cef7e936965cbf795852ca2020300b9e2ba7daa59f2bf4f1f7bf416218"
+    },
+    "assets/sfx/ui/click3.ogg": {
+      "hash": "e3e7fc7ccd9c5cfdf77bffa05aee10d4973812076c76dc889ba2b16ea434127f",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/e3/e3e7fc7ccd9c5cfdf77bffa05aee10d4973812076c76dc889ba2b16ea434127f"
+    },
+    "assets/sfx/ui/mouseclick1.ogg": {
+      "hash": "ece1210c62ccae6c9ea4f4c59466d9d453d6b357c7d4b1a6c31196e5e6fea1bf",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/ec/ece1210c62ccae6c9ea4f4c59466d9d453d6b357c7d4b1a6c31196e5e6fea1bf"
+    },
+    "assets/vo/vo1.wav": {
+      "hash": "b8e8ee73daca7526fa90f2446bf6b32166bbfb6f3e760cfb153626b2d0af3e45",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/b8/b8e8ee73daca7526fa90f2446bf6b32166bbfb6f3e760cfb153626b2d0af3e45"
+    },
+    "assets/vo/vo2.wav": {
+      "hash": "c9e1975bc611d3ce90aee363299097b6e39a6a8498536be4a5f0764af599fee3",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/c9/c9e1975bc611d3ce90aee363299097b6e39a6a8498536be4a5f0764af599fee3"
+    },
+    "assets/vo/vo3.wav": {
+      "hash": "feaa6fe551415523f7c9734d6c40a36f2f960b351dcf26142cefe0e17ea27d0f",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/fe/feaa6fe551415523f7c9734d6c40a36f2f960b351dcf26142cefe0e17ea27d0f"
+    },
+    "assets/vo/vo4.wav": {
+      "hash": "9a6e917025118ec7d974043e9575ed989e1f18297cb518df6b4c96ef4790cfaf",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/9a/9a6e917025118ec7d974043e9575ed989e1f18297cb518df6b4c96ef4790cfaf"
+    },
+    "assets/vo/vo5.wav": {
+      "hash": "2ccf67702d8291b0ad778bfc9071bd7476c326174d6120df4ce2d0414a15395e",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/2c/2ccf67702d8291b0ad778bfc9071bd7476c326174d6120df4ce2d0414a15395e"
+    },
+    "assets/vo/vo6.wav": {
+      "hash": "ada7fbd31ce697e2b90bebb6a65d9310ce3a6bd9f09a80cfba77177f6c5d6fb3",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/ad/ada7fbd31ce697e2b90bebb6a65d9310ce3a6bd9f09a80cfba77177f6c5d6fb3"
+    },
+    "compositions/s1.html": {
+      "hash": "be3ee6d805ddf921b5adc272ab2491c28932d97661d7a90986f92a463213238e",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/be/be3ee6d805ddf921b5adc272ab2491c28932d97661d7a90986f92a463213238e"
+    },
+    "compositions/s2.html": {
+      "hash": "4bc8b569a02760705b52b231452cdb754c493d78e5604714f21a33ce3f0a344e",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/4b/4bc8b569a02760705b52b231452cdb754c493d78e5604714f21a33ce3f0a344e"
+    },
+    "compositions/s3.html": {
+      "hash": "d81b56c4f434609efb85acffcc9ad7558dce658c083ce72187b8ed4ddc18cc93",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/d8/d81b56c4f434609efb85acffcc9ad7558dce658c083ce72187b8ed4ddc18cc93"
+    },
+    "compositions/s4.html": {
+      "hash": "76fdeb156f42e789fa2d84586b40c86275b1fe6189b116c24e3f90b6ebbcf82d",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/76/76fdeb156f42e789fa2d84586b40c86275b1fe6189b116c24e3f90b6ebbcf82d"
+    },
+    "compositions/s5.html": {
+      "hash": "edce45e619316fd4501ac9310faa763f2c6b4355356e3cfa59d61de5e29ae38a",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/ed/edce45e619316fd4501ac9310faa763f2c6b4355356e3cfa59d61de5e29ae38a"
+    },
+    "compositions/s6.html": {
+      "hash": "99bf53b2f657cba5a6e921ca39dfed74b1a2f4240cca5ddbdd1875d88b347ebf",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/99/99bf53b2f657cba5a6e921ca39dfed74b1a2f4240cca5ddbdd1875d88b347ebf"
+    },
+    "hyperframes.json": {
+      "hash": "35a6d4ea79ebe911f0d81705f7aace5d8ff0316b745b0311d56af50c9c237cb7",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/35/35a6d4ea79ebe911f0d81705f7aace5d8ff0316b745b0311d56af50c9c237cb7"
+    },
+    "index.html": {
+      "hash": "08d8ad41d5e6bb5c17244049ce5a40dfa94dd58d1fa6459cd11f40f3b827674b",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/08/08d8ad41d5e6bb5c17244049ce5a40dfa94dd58d1fa6459cd11f40f3b827674b"
+    },
+    "meta.json": {
+      "hash": "f5c09a0a6d9a8c318b20fc6a768011256f5458e42ba52c69a2183cbf20e96677",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/f5/f5c09a0a6d9a8c318b20fc6a768011256f5458e42ba52c69a2183cbf20e96677"
+    },
+    "package.json": {
+      "hash": "4d46ff6222ee75815c0f14c2d77ed1e316347ba54892944bb8462fe9efd19bf8",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/4d/4d46ff6222ee75815c0f14c2d77ed1e316347ba54892944bb8462fe9efd19bf8"
+    },
+    "assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3": {
+      "hash": "5888d4bd2ba0119b87a94e502ae2cc401c08192945cc5e5c2f8e8a33aa47a0a1",
+      "content": "/home/stein/.cache/hyperframes/history/2b922acd-b0ff-40e0-a0e9-0b50797d5b31/blobs/58/5888d4bd2ba0119b87a94e502ae2cc401c08192945cc5e5c2f8e8a33aa47a0a1"
+    }
+  },
+  "revisions": {},
+  "checks": {
+    "latest": {
+      "revision": null,
+      "id": "2adc997a-7017-4e6f-880f-007b27e5d57a"
+    },
+    "revisions": {},
+    "unversioned": [
+      {
+        "id": "2adc997a-7017-4e6f-880f-007b27e5d57a",
+        "scope": "project",
+        "report": "/home/stein/Desktop/myprojects/outreach-personalizer/brag-output/composition/.hyperframes/artifacts/checks/2adc997a-7017-4e6f-880f-007b27e5d57a.json",
+        "metadata": {
+          "ok": true,
+          "browserSkipped": false,
+          "options": {
+            "samples": 9,
+            "atTransitions": false,
+            "maxIssues": 80,
+            "collapseStatic": true,
+            "tolerance": 2,
+            "timeout": 3000,
+            "contrast": true,
+            "strict": false,
+            "snapshots": false,
+            "browserGpuMode": "auto"
+          }
+        },
+        "createdAt": 1792957826533,
+        "contentHash": "03931b4de56c4a3dd68b4f29544aa4550853c6db230bdb22efe99d3b4fc03b4c",
+        "revision": null,
+        "inputFingerprint": "8f11ecb39e936efc63206675b15d2f2f5f85bb3353125b59bdd131b783c4c29b",
+        "inputScope": "local-project-files",
+        "attribution": "unversioned"
+      }
+    ]
+  },
+  "snapshots": {
+    "latest": null,
+    "revisions": {},
+    "unversioned": []
+  }
+}

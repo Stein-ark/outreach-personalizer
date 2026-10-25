@@ -13,14 +13,13 @@ import { dbUnavailable, isDbConnected, isDbUnavailable } from './lib/dbStatus.js
 import { requireAuth } from './auth/middleware.js';
 import { authRoutes } from './routes/auth.js';
 import { accountRoutes } from './routes/account.js';
-import { aiRoutes } from './routes/ai.js';
 import { prospectRoutes } from './routes/prospects.js';
 import type { AppContext } from './context.js';
 
 export const SERVER_VERSION = '0.1.0';
 
 /** Routes that work without the database. */
-const DB_FREE_PATHS = new Set(['/health', '/extract']);
+const DB_FREE_PATHS = new Set(['/health']);
 
 export function createApp(ctx: AppContext): express.Express {
   const app = express();
@@ -63,15 +62,14 @@ export function createApp(ctx: AppContext): express.Express {
     res.json(body);
   });
   // Requests that need the database are refused at once while it is down (the driver would otherwise wait for its
-  // server selection timeout on every call). Health and page extraction do not need it and keep working.
+  // server selection timeout on every call). Health does not need it and keeps working.
   api.use((req, _res, next) => {
     if (!isDbConnected() && !DB_FREE_PATHS.has(req.path)) throw dbUnavailable();
     next();
   });
   api.use('/auth', authRoutes(ctx));
-  api.use(requireAuth(ctx.tokens, ctx.sessions, ctx.logger), ctx.limits.user);
+  api.use(requireAuth(ctx.tokens, ctx.sessions), ctx.limits.user);
   api.use(accountRoutes());
-  api.use(aiRoutes(ctx));
   api.use(prospectRoutes(ctx));
   app.use(API_PREFIX, api);
 

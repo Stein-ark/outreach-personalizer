@@ -116,7 +116,7 @@ describe('AiGateway retry policy', () => {
       throw new ProviderError('fatal', 'bad');
     });
     const g = new AiGateway(provider, roomy(), pino({ level: 'silent' }), { maxWaitMs: 5000, sleep: async () => {} });
-    expect(((await g.completeJson('extract', req).catch((e: unknown) => e)) as AppError).code).toBe('AI_FAILED');
+    expect(((await g.completeJson('draft', req).catch((e: unknown) => e)) as AppError).code).toBe('AI_FAILED');
     expect(provider.calls).toHaveLength(1);
   });
 

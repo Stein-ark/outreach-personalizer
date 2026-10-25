@@ -6,7 +6,7 @@ import { Types } from 'mongoose';
 import { UsageCounter } from '../db/models.js';
 import { AppError } from '../lib/errors.js';
 
-export type UsageKind = 'draft' | 'extract';
+export type UsageKind = 'draft';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -26,8 +26,7 @@ export async function consumeDaily(userId: string, kind: UsageKind, cap: number)
     );
   } catch (err) {
     if (!isDuplicateKey(err)) throw err;
-    const label = kind === 'draft' ? 'drafts' : 'page reads';
-    throw new AppError(429, 'DAILY_CAP', `You have reached today's limit of ${cap} ${label}. It resets at midnight UTC.`, secondsUntilUtcMidnight());
+    throw new AppError(429, 'DAILY_CAP', `You have reached today's limit of ${cap} drafts. It resets at midnight UTC.`, secondsUntilUtcMidnight());
   }
 }
 

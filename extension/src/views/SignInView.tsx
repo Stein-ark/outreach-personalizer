@@ -45,7 +45,7 @@ export function SignInView({ expired }: { expired: boolean }) {
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-5 p-4">
       <div>
         <h1 className="text-[22px] font-semibold tracking-tight">{APP_NAME}</h1>
-        <p className="mt-1 text-ink-soft">Personal outreach for fundraising, drafted from the page you are on.</p>
+        <p className="mt-1 text-ink-soft">Collect email addresses from the pages you visit into ready made spreadsheets.</p>
       </div>
       {expired ? <Banner tone="warn" title="Your session expired">Sign in again to continue. Your current prospect is still here.</Banner> : null}
       {failure ? <ErrorNotice shown={failure} onDismiss={() => setFailure(null)} /> : null}

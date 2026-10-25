@@ -65,7 +65,7 @@ export function buildTestApp(envOverrides: Record<string, string> = {}) {
   const tokens = new TokenService(env.JWT_SECRET, env.ACCESS_TOKEN_TTL_SECONDS);
   const sessions = new SessionService(tokens, env.REFRESH_TOKEN_TTL_DAYS);
   const app = createApp({ env, logger, tokens, sessions, gateway, base: loadBaseInstructions(), limits: createRateLimits() });
-  return { app, provider, env, tokens, sessions };
+  return { app, provider, env, tokens, sessions, gateway };
 }
 
 /** Starts one in-memory MongoDB for the test file and wipes all collections between tests. Returns the URI getter. */
