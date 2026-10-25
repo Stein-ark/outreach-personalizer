@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.output/
+.wxt/
+*.log
+.env
+.env.*
+!.env.example
+!extension/.env.development
+extension/keys/
+coverage/

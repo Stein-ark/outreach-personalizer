@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+/*
+ * Tokens. Cool paper and ink navy, verdigris for actions, amber only for warnings.
+ * Dark mode follows the system and keeps the same roles on a navy slate base.
+ */
+:root {
+  --paper: #f2f4f7;
+  --surface: #ffffff;
+  --sheet: #fbfcfd;
+  --ink: #18233a;
+  --ink-soft: #4a5672;
+  --rule: #d5dbe5;
+  --action: #0f7a64;
+  --action-ink: #ffffff;
+  --action-soft: #e3f3ee;
+  --warn: #8a4d05;
+  --warn-soft: #fdf1df;
+  --danger: #b42318;
+  --danger-soft: #fdeceb;
+  --focus: #2563eb;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #111827;
+    --surface: #1a2335;
+    --sheet: #1f2a40;
+    --ink: #e7ebf3;
+    --ink-soft: #a7b1c6;
+    --rule: #33405a;
+    --action: #3cc7a6;
+    --action-ink: #0b2a22;
+    --action-soft: #173a33;
+    --warn: #f5b759;
+    --warn-soft: #3a2a12;
+    --danger: #ff8a80;
+    --danger-soft: #3d1c1c;
+    --focus: #8ab4ff;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-action: var(--action);
+  --color-action-ink: var(--action-ink);
+  --color-action-soft: var(--action-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-letter: Charter, "Bitstream Charter", "Iowan Old Style", "Sitka Text", Cambria, Georgia, serif;
+}
+
+html,
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* The one orchestrated moment: a fresh draft settles onto the sheet. */
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-settle {
+  animation: settle 260ms ease-out both;
+}
