@@ -2,7 +2,7 @@
  * Settings: sender profile, voice samples, default dials, footer, privacy notes and account actions.
  */
 import { useEffect, useState } from 'react';
-import { LogOut, Plus, Save, Trash2, UserX } from 'lucide-react';
+import { LogOut, Plus, Radar, Save, Trash2, UserX } from 'lucide-react';
 import {
   APP_NAME,
   FIELD_LIMITS,
@@ -13,7 +13,8 @@ import {
   type VoiceSample,
 } from '@op/shared';
 import { api } from '../lib/api';
-import { removeStored } from '../lib/storage';
+import { removeStored, useStored } from '../lib/storage';
+import { AUTO_KEY, AutoSetting, disableAutoCollect, enableAutoCollect } from '../lib/autoCollect';
 import { WORK_KEY } from '../lib/work';
 import { Banner, Button, Choice, Field, Spinner } from '../components/ui';
 import { ErrorNotice, toShown, type ShownError } from '../components/ErrorNotice';
@@ -216,6 +217,54 @@ function VoiceSection() {
   );
 }
 
+function AutoCollectSection() {
+  const setting = useStored('local', AUTO_KEY, AutoSetting);
+  const on = setting.value?.enabled === true;
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const toggle = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      if (on) await disableAutoCollect();
+      else if (!(await enableAutoCollect())) setMessage('Chrome did not grant access to websites, so collection stays off.');
+    } catch (err) {
+      // Chrome's own reason (for example a permission or registration error) is shown so problems can be diagnosed.
+      setMessage(`Could not change the setting: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section aria-labelledby="auto-heading" className="flex flex-col gap-3 border-t border-rule pt-4">
+      <div>
+        <h2 id="auto-heading" className="font-semibold">Automatic collection</h2>
+        <p className="text-[13px] text-ink-soft">
+          {on ? 'On. ' : 'Off. '}When on, every page you open is scanned for email addresses and the names next to them, and each
+          person is added to your Saved list as "Not contacted" (kept for a few hours, like everything else). Only names and
+          addresses are sent to your server. Page text is not sent, and the AI is not used until you draft.
+        </p>
+      </div>
+      <p className="text-[13px] text-ink-soft">
+        It never runs on LinkedIn, webmail, Google Docs and Drive, payment sites, private network addresses, or any page with a
+        password or card field. The toolbar icon shows how many people each page had.
+      </p>
+      {!on ? (
+        <Banner tone="warn" title="Check the rules where you and your contacts are">
+          Collecting addresses for cold email is regulated in many places, for example GDPR and PECR in the EU and UK and
+          CAN-SPAM in the US. Chrome will ask to let {APP_NAME} read data on all websites.
+        </Banner>
+      ) : null}
+      <Button variant={on ? 'secondary' : 'primary'} icon={Radar} busy={busy} onClick={() => void toggle()} className="self-start">
+        {on ? 'Turn off automatic collection' : 'Turn on automatic collection'}
+      </Button>
+      {message ? <p role="alert" className="text-[13px] text-danger">{message}</p> : null}
+    </section>
+  );
+}
+
 function AccountSection({ email, onSignOut }: { email: string; onSignOut: (intended: boolean) => void }) {
   const [deleting, setDeleting] = useState(false);
   const [password, setPassword] = useState('');
@@ -224,6 +273,7 @@ function AccountSection({ email, onSignOut }: { email: string; onSignOut: (inten
 
   const signOut = async () => {
     onSignOut(true);
+    await disableAutoCollect().catch(() => undefined);
     await removeStored('session', WORK_KEY);
     await api.logout();
   };
@@ -234,6 +284,7 @@ function AccountSection({ email, onSignOut }: { email: string; onSignOut: (inten
     try {
       onSignOut(true);
       await api.deleteAccount(password);
+      await disableAutoCollect().catch(() => undefined);
       await removeStored('session', WORK_KEY);
     } catch (err) {
       onSignOut(false);
@@ -250,7 +301,8 @@ function AccountSection({ email, onSignOut }: { email: string; onSignOut: (inten
       <p className="text-[13px] text-ink-soft">
         {APP_NAME} reads a page only when you click its icon, its menu items or its shortcut. The page's text is sent to your
         server and to Groq to extract details and draft the email. Only the details and drafts you save are stored, never the page
-        text. There are no analytics or trackers.
+        text, and saved prospects are deleted from the server a few hours after they are saved, so export your list to keep it.
+        There are no analytics or trackers.
       </p>
       <Button icon={LogOut} onClick={() => void signOut()} className="self-start">Sign out</Button>
       {deleting ? (
@@ -275,6 +327,7 @@ export default function SettingsView({ email, onSignOut }: { email: string; onSi
   return (
     <div className="flex flex-col gap-4">
       <SenderSection />
+      <AutoCollectSection />
       <VoiceSection />
       <AccountSection email={email} onSignOut={onSignOut} />
     </div>

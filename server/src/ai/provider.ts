@@ -36,6 +36,9 @@ export class ProviderError extends Error {
   }
 }
 
+/** The provider could not be reached at all (network), as opposed to answering that the model or key is invalid. */
+export class ProviderUnreachableError extends Error {}
+
 export interface AiProvider {
   readonly name: string;
   readonly model: string;
@@ -74,19 +77,27 @@ export class OpenAiCompatibleProvider implements AiProvider {
     this.client = new OpenAI({ baseURL: config.baseURL, apiKey: config.apiKey, timeout: config.timeoutMs, maxRetries: 0 });
   }
 
+  /**
+   * Lists the models this key can use and looks for the configured id. A single model lookup is not used because
+   * the SDK URL-encodes the slash in ids like "openai/gpt-oss-120b", which Groq answers with 404.
+   */
   async checkModel(): Promise<void> {
+    const ids: string[] = [];
     try {
-      await this.client.models.retrieve(this.model);
+      // A short timeout: this runs at boot, where waiting the full request timeout three times is too slow.
+      for await (const m of this.client.models.list({ timeout: 10_000 })) ids.push(m.id);
     } catch (err) {
+      if (err instanceof OpenAI.APIConnectionError) throw new ProviderUnreachableError(`Could not reach ${this.name}: ${err.message}`);
       const status = err instanceof OpenAI.APIError ? err.status : undefined;
-      if (status === 404) {
-        throw new Error(
-          `AI model "${this.model}" is not available from ${this.name}. It may have been retired. ` +
-            `Check the provider's supported models and deprecations pages and set AI_MODEL.`,
-        );
-      }
       if (status === 401 || status === 403) throw new Error(`AI_API_KEY was rejected by ${this.name} (HTTP ${status}).`);
+      if (status !== undefined && status >= 500) throw new ProviderUnreachableError(`${this.name} answered HTTP ${status}`);
       throw new Error(`Could not verify AI model "${this.model}" with ${this.name}: ${(err as Error).message}`);
+    }
+    if (!ids.includes(this.model)) {
+      throw new Error(
+        `AI model "${this.model}" is not available from ${this.name}. It may have been retired. ` +
+          `Check the provider's supported models and deprecations pages and set AI_MODEL.`,
+      );
     }
   }
 

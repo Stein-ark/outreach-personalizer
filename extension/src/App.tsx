@@ -8,6 +8,7 @@ import { APP_NAME } from '@op/shared';
 import { REFRESH_KEY, StoredRefresh } from './lib/auth';
 import { useStored } from './lib/storage';
 import { Banner, Spinner } from './components/ui';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { SignInView } from './views/SignInView';
 import { ProspectView } from './views/ProspectView';
 
@@ -86,18 +87,31 @@ export function App() {
             <span className="inline-flex items-center gap-1.5"><WifiOff aria-hidden className="size-3.5" /> Reading pages still works. Extracting, drafting and saving wait until you reconnect.</span>
           </Banner>
         ) : null}
-        {tab === 'prospect' ? <ProspectView onOpenSettings={() => setTab('settings')} /> : null}
-        <Suspense fallback={<Spinner label="Loading" />}>
-          {tab === 'list' ? <ListView onOpened={() => setTab('prospect')} /> : null}
-          {tab === 'settings' ? (
-            <SettingsView
-              email={auth.value.user.email}
-              onSignOut={(intended) => {
-                signedOutOnPurpose.current = intended;
-              }}
-            />
-          ) : null}
-        </Suspense>
+        {/* Each section has its own boundary (and the lazy ones their own loader), so one failing leaves the rest usable. */}
+        {tab === 'prospect' ? (
+          <ErrorBoundary section="Prospect">
+            <ProspectView onOpenSettings={() => setTab('settings')} />
+          </ErrorBoundary>
+        ) : null}
+        {tab === 'list' ? (
+          <ErrorBoundary section="Saved">
+            <Suspense fallback={<Spinner label="Loading" />}>
+              <ListView onOpened={() => setTab('prospect')} />
+            </Suspense>
+          </ErrorBoundary>
+        ) : null}
+        {tab === 'settings' ? (
+          <ErrorBoundary section="Settings">
+            <Suspense fallback={<Spinner label="Loading" />}>
+              <SettingsView
+                email={auth.value.user.email}
+                onSignOut={(intended) => {
+                  signedOutOnPurpose.current = intended;
+                }}
+              />
+            </Suspense>
+          </ErrorBoundary>
+        ) : null}
       </main>
     </div>
   );

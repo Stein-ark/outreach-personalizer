@@ -5,10 +5,11 @@
 import express, { Router, type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { API_PREFIX, type ErrorBody } from '@op/shared';
+import { API_PREFIX, type ErrorBody, type Health } from '@op/shared';
 import { httpLogger } from './lib/logger.js';
 import { AppError } from './lib/errors.js';
 import { ValidationError } from './lib/validate.js';
+import { dbUnavailable, isDbConnected, isDbUnavailable } from './lib/dbStatus.js';
 import { requireAuth } from './auth/middleware.js';
 import { authRoutes } from './routes/auth.js';
 import { accountRoutes } from './routes/account.js';
@@ -17,6 +18,9 @@ import { prospectRoutes } from './routes/prospects.js';
 import type { AppContext } from './context.js';
 
 export const SERVER_VERSION = '0.1.0';
+
+/** Routes that work without the database. */
+const DB_FREE_PATHS = new Set(['/health', '/extract']);
 
 export function createApp(ctx: AppContext): express.Express {
   const app = express();
@@ -55,13 +59,20 @@ export function createApp(ctx: AppContext): express.Express {
 
   const api = Router();
   api.get('/health', (_req, res) => {
-    res.json({ ok: true, version: SERVER_VERSION });
+    const body: Health = { ok: true, version: SERVER_VERSION, db: isDbConnected() ? 'up' : 'down', ai: ctx.gateway.reachability };
+    res.json(body);
+  });
+  // Requests that need the database are refused at once while it is down (the driver would otherwise wait for its
+  // server selection timeout on every call). Health and page extraction do not need it and keep working.
+  api.use((req, _res, next) => {
+    if (!isDbConnected() && !DB_FREE_PATHS.has(req.path)) throw dbUnavailable();
+    next();
   });
   api.use('/auth', authRoutes(ctx));
-  api.use(requireAuth(ctx.tokens, ctx.sessions), ctx.limits.user);
+  api.use(requireAuth(ctx.tokens, ctx.sessions, ctx.logger), ctx.limits.user);
   api.use(accountRoutes());
   api.use(aiRoutes(ctx));
-  api.use(prospectRoutes());
+  api.use(prospectRoutes(ctx));
   app.use(API_PREFIX, api);
 
   app.use(() => {
@@ -82,6 +93,10 @@ export function createApp(ctx: AppContext): express.Express {
         message: err.message,
         ...(err.retryAfterSeconds ? { retryAfterSeconds: err.retryAfterSeconds } : {}),
       });
+    }
+    if (isDbUnavailable(err)) {
+      const e = dbUnavailable();
+      return send(e.status, { code: e.code, message: e.message, retryAfterSeconds: e.retryAfterSeconds });
     }
     const type = (err as { type?: string }).type;
     if (type === 'entity.too.large') return send(413, { code: 'VALIDATION', message: 'Request is too large.' });

@@ -4,7 +4,7 @@
  * Raw page text is never stored, only the extracted fields.
  */
 import mongoose, { Schema, type InferSchemaType, type Types } from 'mongoose';
-import { DEFAULT_DIALS, Goal, Length, ProspectStatus, SourceMode, Tone } from '@op/shared';
+import { DEFAULT_DIALS, Goal, Length, ProspectSource, ProspectStatus, Tone } from '@op/shared';
 
 const nullableString = { type: String, default: null };
 
@@ -72,26 +72,31 @@ const ProspectSchema = new Schema(
     email: nullableString,
     sourceUrl: nullableString,
     sourceTitle: nullableString,
-    sourceMode: { type: String, enum: SourceMode.options, required: true },
-    subject: { type: String, required: true },
-    body: { type: String, required: true },
-    detailUsed: { type: String, required: true },
-    tone: { type: String, enum: Tone.options, required: true },
-    length: { type: String, enum: Length.options, required: true },
-    goal: { type: String, enum: Goal.options, required: true },
-    baseInstructionsVersion: { type: String, required: true },
-    model: { type: String, required: true },
+    sourceMode: { type: String, enum: ProspectSource.options, required: true },
+    /** Normalized page URL, set only for prospects drafted from a page or selection. One drafted prospect per page. */
+    pageKey: nullableString,
+    // Draft fields stay null for automatically collected prospects until the user drafts.
+    subject: nullableString,
+    body: nullableString,
+    detailUsed: nullableString,
+    tone: { type: String, enum: [...Tone.options, null], default: null },
+    length: { type: String, enum: [...Length.options, null], default: null },
+    goal: { type: String, enum: [...Goal.options, null], default: null },
+    baseInstructionsVersion: nullableString,
+    model: nullableString,
     status: { type: String, enum: ProspectStatus.options, default: 'drafted' },
+    /** Set once when first saved. MongoDB deletes the prospect after this moment (TTL index below). */
+    expiresAt: { type: Date, required: true },
   },
   { timestamps: true },
 );
-// Saving the same page twice updates the existing prospect. Pasted text has no URL and is never deduplicated.
-ProspectSchema.index(
-  { userId: 1, sourceUrl: 1 },
-  { unique: true, partialFilterExpression: { sourceUrl: { $type: 'string' } } },
-);
+// Drafting the same page twice updates the existing prospect. Pasted text has no page key and is never deduplicated.
+ProspectSchema.index({ userId: 1, pageKey: 1 }, { unique: true, partialFilterExpression: { pageKey: { $type: 'string' } } });
+// One prospect per email address per user, so collecting a page again (or drafting someone already collected) merges.
+ProspectSchema.index({ userId: 1, email: 1 }, { unique: true, partialFilterExpression: { email: { $type: 'string' } } });
 ProspectSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 ProspectSchema.index({ userId: 1, status: 1, createdAt: -1, _id: -1 });
+ProspectSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 /** Per user, per UTC day counters for the daily draft and extract caps. */
 const UsageCounterSchema = new Schema({

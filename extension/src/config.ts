@@ -12,6 +12,31 @@ export const API_BASE_URL: string = import.meta.env.WXT_API_BASE_URL;
  */
 export const BLOCKED_HOSTS: readonly string[] = ['linkedin.com'];
 
+/**
+ * Automatic collection never runs on these (plus BLOCKED_HOSTS, private network addresses, and any page with a password,
+ * card number or one time code field). They hold the user's own private mail, accounts and payments.
+ */
+export const NEVER_COLLECT_HOSTS: readonly string[] = [
+  'mail.google.com',
+  'accounts.google.com',
+  'drive.google.com',
+  'docs.google.com',
+  'calendar.google.com',
+  'outlook.live.com',
+  'outlook.office.com',
+  'outlook.office365.com',
+  'mail.yahoo.com',
+  'mail.proton.me',
+  'icloud.com',
+  'web.whatsapp.com',
+  'messenger.com',
+  'slack.com',
+  'paypal.com',
+  'stripe.com',
+  'wise.com',
+  'revolut.com',
+];
+
 /** Hosts Chrome never lets extensions script (the Web Store). */
 export const RESTRICTED_HOSTS: readonly string[] = ['chromewebstore.google.com', 'chrome.google.com'];
 

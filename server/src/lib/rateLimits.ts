@@ -38,6 +38,7 @@ export interface RateLimitSet {
   refresh: ReturnType<typeof rateLimit>;
   user: ReturnType<typeof rateLimit>;
   ai: ReturnType<typeof rateLimit>;
+  collect: ReturnType<typeof rateLimit>;
 }
 
 export function createRateLimits(): RateLimitSet {
@@ -52,5 +53,7 @@ export function createRateLimits(): RateLimitSet {
     refresh: limiter(15 * MINUTE, 60, byIp, 'Too many requests. Try again shortly.'),
     user: limiter(15 * MINUTE, 600, byUser, 'Too many requests. Slow down and try again shortly.'),
     ai: limiter(MINUTE, 12, byUser, 'You are drafting very quickly. Wait a moment and try again.'),
+    // One request per page visited. Generous for normal browsing, but stops a runaway loop.
+    collect: limiter(MINUTE, 60, byUser, 'Too many pages collected in a minute. Collection resumes shortly.'),
   };
 }

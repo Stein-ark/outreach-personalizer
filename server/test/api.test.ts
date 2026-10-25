@@ -45,7 +45,7 @@ describe('health and transport', () => {
   it('answers health without auth', async () => {
     const { app } = buildTestApp();
     const res = await request(app).get(`${API}/health`).expect(200);
-    expect(res.body).toEqual({ ok: true, version: expect.any(String) });
+    expect(res.body).toEqual({ ok: true, version: expect.any(String), db: 'up', ai: 'unchecked' });
   });
 
   it('sets security headers and hides the framework', async () => {
@@ -224,7 +224,7 @@ describe('POST /draft', () => {
       model: 'test-model',
       baseInstructionsVersion: expect.stringMatching(/\d{4}-\d{2}-\d{2}/),
     });
-    expect(prospect.body.endsWith(SENDER.footer)).toBe(true);
+    expect(prospect.body?.endsWith(SENDER.footer)).toBe(true);
     expect(t.provider.calls[0]!.user).not.toContain(SENDER.footer);
   });
 
@@ -394,5 +394,156 @@ describe('account deletion', () => {
     const mongoose = (await import('mongoose')).default;
     const remaining = await mongoose.connection.db!.collection('prospects').countDocuments();
     expect(remaining).toBe(1);
+  });
+});
+
+describe('3 hour retention', () => {
+  const HOUR = 3_600_000;
+  const prospects = async () => (await import('mongoose')).default.connection.db!.collection('prospects');
+
+  it('stamps each saved prospect to expire 3 hours after it was first saved', async () => {
+    const t = await twoUsers();
+    const p = await draftFor(t, t.a, 'https://example.com/x');
+    expect(Date.parse(p.expiresAt) - Date.parse(p.createdAt)).toBeGreaterThanOrEqual(3 * HOUR - 5000);
+    expect(Date.parse(p.expiresAt) - Date.parse(p.createdAt)).toBeLessThanOrEqual(3 * HOUR + 5000);
+  });
+
+  it('has a MongoDB TTL index on expiresAt so the database deletes expired prospects itself', async () => {
+    const indexes = await (await prospects()).indexes();
+    expect(indexes).toContainEqual(expect.objectContaining({ key: { expiresAt: 1 }, expireAfterSeconds: 0 }));
+  });
+
+  it('re-drafting a saved page keeps the original expiry', async () => {
+    const t = await twoUsers();
+    const first = await draftFor(t, t.a, 'https://example.com/x');
+    const again = await draftFor(t, t.a, 'https://example.com/x');
+    expect(again.expiresAt).toBe(first.expiresAt);
+  });
+
+  it('hides expired prospects at once, before the TTL monitor removes them', async () => {
+    const t = await twoUsers();
+    const p = await draftFor(t, t.a, 'https://example.com/x');
+    await (await prospects()).updateMany({}, { $set: { expiresAt: new Date(Date.now() - 1000) } });
+
+    const list = await request(t.app).get(`${API}/prospects`).set(t.as(t.a)).expect(200);
+    expect(list.body.items).toHaveLength(0);
+    const one = await request(t.app).get(`${API}/prospects/${p.id}`).set(t.as(t.a)).expect(404);
+    expect(one.body.error.message).toContain('export your list');
+    await request(t.app).patch(`${API}/prospects/${p.id}`).set(t.as(t.a)).send({ status: 'sent' }).expect(404);
+  });
+
+  it('drafting an expired page again saves it fresh with a new 3 hour window', async () => {
+    const t = await twoUsers();
+    const old = await draftFor(t, t.a, 'https://example.com/x');
+    await (await prospects()).updateMany({}, { $set: { expiresAt: new Date(Date.now() - 1000) } });
+    const fresh = await draftFor(t, t.a, 'https://example.com/x');
+    expect(fresh.id).not.toBe(old.id);
+    expect(Date.parse(fresh.expiresAt)).toBeGreaterThan(Date.now() + 2 * HOUR);
+  });
+
+  it('honours PROSPECT_TTL_HOURS', async () => {
+    const t = buildTestApp({ ALLOW_SIGNUP: 'true', PROSPECT_TTL_HOURS: '1' });
+    const auth = await register(t.app, 'ttl@example.com');
+    const h = { Authorization: `Bearer ${auth.accessToken}` };
+    await request(t.app).put(`${API}/settings`).set(h).send(SENDER).expect(200);
+    t.provider.reply(DRAFT);
+    const res = await request(t.app).post(`${API}/draft`).set(h).send({ fields: FIELDS, source: { mode: 'paste', url: null, title: null }, dials: SENDER.defaultDials }).expect(200);
+    const p = res.body.prospect as Prospect;
+    expect(Date.parse(p.expiresAt) - Date.parse(p.createdAt)).toBeLessThanOrEqual(HOUR + 5000);
+  });
+});
+
+describe('automatic collection', () => {
+  const collect = (t: Awaited<ReturnType<typeof twoUsers>>, auth: AuthResponse, people: { email: string; name: string | null }[], url = 'https://fund.example/team') =>
+    request(t.app).post(`${API}/prospects/collect`).set(t.as(auth)).send({ url, title: 'Team', people });
+
+  it('saves everyone on a page as not contacted, with no draft and no AI call', async () => {
+    const t = await twoUsers();
+    const res = await collect(t, t.a, [
+      { email: 'maya@fund.example', name: 'Maya Ortiz' },
+      { email: 'sam@fund.example', name: null },
+    ]).expect(201);
+    expect(res.body).toEqual({ added: 2, alreadySaved: 0 });
+    const list = await request(t.app).get(`${API}/prospects?status=new`).set(t.as(t.a)).expect(200);
+    expect(list.body.items).toHaveLength(2);
+    expect(list.body.items[0]).toMatchObject({ sourceMode: 'auto', subject: null, body: null, status: 'new' });
+    expect(t.provider.calls).toHaveLength(0);
+  });
+
+  it('merges by email: visiting the page again adds nobody and changes nothing', async () => {
+    const t = await twoUsers();
+    await collect(t, t.a, [{ email: 'maya@fund.example', name: 'Maya Ortiz' }]).expect(201);
+    const again = await collect(t, t.a, [{ email: 'MAYA@fund.example', name: 'Different Name' }, { email: 'new@fund.example', name: null }]).expect(201);
+    expect(again.body).toEqual({ added: 1, alreadySaved: 1 });
+    const list = await request(t.app).get(`${API}/prospects`).set(t.as(t.a)).expect(200);
+    expect(list.body.items.find((p: Prospect) => p.email === 'maya@fund.example').name).toBe('Maya Ortiz');
+  });
+
+  it('drafting someone already collected updates that prospect instead of duplicating', async () => {
+    const t = await twoUsers();
+    await collect(t, t.a, [{ email: 'jane@northwind.example', name: 'Jane Investor' }]).expect(201);
+    const drafted = await draftFor(t, t.a, 'https://northwind.example/jane', { ...FIELDS, email: 'jane@northwind.example' });
+    expect(drafted.status).toBe('drafted');
+    const list = await request(t.app).get(`${API}/prospects`).set(t.as(t.a)).expect(200);
+    expect(list.body.items).toHaveLength(1);
+    expect(list.body.items[0].subject).toBe(DRAFT.subject);
+  });
+
+  it('a later collection never overwrites a draft', async () => {
+    const t = await twoUsers();
+    await draftFor(t, t.a, 'https://northwind.example/jane', { ...FIELDS, email: 'jane@northwind.example' });
+    await collect(t, t.a, [{ email: 'jane@northwind.example', name: 'Someone' }]).expect(201);
+    const list = await request(t.app).get(`${API}/prospects`).set(t.as(t.a)).expect(200);
+    expect(list.body.items[0]).toMatchObject({ status: 'drafted', subject: DRAFT.subject, name: 'Jane Investor' });
+  });
+
+  it('keeps collections separate per user', async () => {
+    const t = await twoUsers();
+    await collect(t, t.a, [{ email: 'maya@fund.example', name: null }]).expect(201);
+    const b = await collect(t, t.b, [{ email: 'maya@fund.example', name: null }]).expect(201);
+    expect(b.body.added).toBe(1);
+    const bList = await request(t.app).get(`${API}/prospects`).set(t.as(t.b)).expect(200);
+    expect(bList.body.items).toHaveLength(1);
+  });
+
+  it('applies the 3 hour retention to collected people', async () => {
+    const t = await twoUsers();
+    await collect(t, t.a, [{ email: 'maya@fund.example', name: null }]).expect(201);
+    const [p] = (await request(t.app).get(`${API}/prospects`).set(t.as(t.a)).expect(200)).body.items as Prospect[];
+    expect(Date.parse(p!.expiresAt) - Date.parse(p!.createdAt)).toBeGreaterThan(3 * 3_600_000 - 5000);
+  });
+
+  it('validates input: real emails only, at most 50 people, http(s) pages only', async () => {
+    const t = await twoUsers();
+    await collect(t, t.a, [{ email: 'not-an-email', name: null }]).expect(400);
+    await collect(t, t.a, Array.from({ length: 51 }, (_, i) => ({ email: `p${i}@x.example`, name: null }))).expect(400);
+    await collect(t, t.a, [{ email: 'a@x.example', name: null }], 'chrome://settings').expect(400);
+    await request(t.app).post(`${API}/prospects/collect`).send({ url: 'https://x.example', title: null, people: [{ email: 'a@x.example', name: null }] }).expect(401);
+  });
+
+  it('editing an email to one already saved gives a clear conflict', async () => {
+    const t = await twoUsers();
+    await collect(t, t.a, [{ email: 'maya@fund.example', name: null }, { email: 'sam@fund.example', name: null }]).expect(201);
+    const items = (await request(t.app).get(`${API}/prospects`).set(t.as(t.a))).body.items as Prospect[];
+    const sam = items.find((p) => p.email === 'sam@fund.example')!;
+    const res = await request(t.app).patch(`${API}/prospects/${sam.id}`).set(t.as(t.a)).send({ email: 'maya@fund.example' }).expect(409);
+    expect(res.body.error.message).toContain('already has this email');
+  });
+
+  it('exports collected people with empty draft columns and "not contacted"', async () => {
+    const t = await twoUsers();
+    await collect(t, t.a, [{ email: 'maya@fund.example', name: 'Maya Ortiz' }]).expect(201);
+    const res = await request(t.app)
+      .get(`${API}/prospects/export`)
+      .set(t.as(t.a))
+      .buffer(true)
+      .parse((r, cb) => {
+        const chunks: Buffer[] = [];
+        r.on('data', (c: Buffer) => chunks.push(c));
+        r.on('end', () => cb(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    const rows = XLSX.utils.sheet_to_json<Record<string, string>>(XLSX.read(res.body as Buffer, { type: 'buffer' }).Sheets.Prospects!);
+    expect(rows[0]).toMatchObject({ Name: 'Maya Ortiz', Email: 'maya@fund.example', Status: 'not contacted' });
   });
 });

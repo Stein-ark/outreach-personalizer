@@ -51,6 +51,8 @@ const EnvSchema = z
 
     DAILY_DRAFT_CAP: z.coerce.number().int().min(1).default(100),
     DAILY_EXTRACT_CAP: z.coerce.number().int().min(1).default(200),
+    /** Saved prospects and drafts are deleted this many hours after they are first saved. Users export before then. */
+    PROSPECT_TTL_HOURS: z.coerce.number().min(0.25).max(720).default(3),
 
     /** Skip the boot time model availability check (tests only). */
     AI_SKIP_MODEL_CHECK: bool.default(false),

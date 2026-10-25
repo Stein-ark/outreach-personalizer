@@ -28,6 +28,10 @@ export const WorkItem = z.object({
   dials: Dials,
   draft: DraftOutput.nullable(),
   prospectId: z.string().nullable(),
+  /** Every address that appears on the page, offered in the Email field when there is more than one. */
+  emailChoices: z.array(z.string()).default([]),
+  /** When the server deletes the saved prospect (null until saved). */
+  expiresAt: z.string().nullable().default(null),
   /** True when the draft or fields were edited after the last save. */
   dirty: z.boolean(),
   /** Set when the user switched to another tab or navigated away from the page this work came from. */

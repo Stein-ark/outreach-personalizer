@@ -11,5 +11,5 @@ Privacy draft: [PRIVACY.md](PRIVACY.md).
 npm install
 npm test
 npm run dev:server      # needs server/.env, see DOCS.md
-npm run dev:extension   # or: npm run build -w extension -- --mode development
+npm run dev:extension   # or: npm run build:dev -w extension
 ```

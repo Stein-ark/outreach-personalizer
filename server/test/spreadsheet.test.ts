@@ -48,6 +48,7 @@ const prospect = (over: Partial<Prospect>): Prospect => ({
   status: 'drafted',
   createdAt: '2026-10-25T10:00:00.000Z',
   updatedAt: '2026-10-25T10:00:00.000Z',
+  expiresAt: '2026-10-25T13:00:00.000Z',
   ...over,
 });
 

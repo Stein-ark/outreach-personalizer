@@ -5,7 +5,7 @@
  */
 import { EMPTY_FIELDS, FIELD_KEYS, FIELD_LIMITS, ProspectFields, type PageSnapshot } from '@op/shared';
 
-const PERSON_NAME = /^[\p{Lu}][\p{L}'.-]+(?: [\p{Lu}][\p{L}'.-]+){1,3}$/u;
+import { PERSON_NAME } from './names';
 
 /** "Jane Doe | Partner at Northwind", "Jane Doe - CEO @ Acme - Site" and similar. */
 const TITLE_PATTERN = /^(.{3,60}?)\s+[|\u2013\u2014-]\s+(.{2,80}?)\s+(?:at|@)\s+(.{2,80}?)(?:\s+[|\u2013\u2014-]\s+.*)?$/;
@@ -59,6 +59,24 @@ export function hintsFromSnapshot(s: PageSnapshot): ProspectFields {
   }
 
   return finalize(out);
+}
+
+/** Every address on the page (mailto links first, then visible text), for the user to choose from. At most 10. */
+export function emailChoicesFrom(s: PageSnapshot): string[] {
+  const all = [...s.mailtos, ...(s.text.match(EMAIL_IN_TEXT) ?? [])].map((e) => e.toLowerCase()).filter((e) => !/\.(png|jpe?g|gif|svg|webp)$/.test(e));
+  return [...new Set(all)].slice(0, 10);
+}
+
+/** True when the address's local part contains the person's first or last name (maya@, m.ortiz@, ortiz.m@). */
+export function emailMatchesName(email: string, name: string | null): boolean {
+  if (!name) return false;
+  const local = email.split('@')[0]!.toLowerCase().replace(/[^a-z]/g, '');
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[^a-z ]/g, '')
+    .split(' ')
+    .some((part) => part.length >= 3 && local.includes(part));
 }
 
 /** Clips each field to its limit and drops any single value the strict schema rejects (for example a bad email). */

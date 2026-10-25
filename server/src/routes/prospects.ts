@@ -1,9 +1,10 @@
 /** Saved prospects: list, read, edit, delete, delete all, and the .xlsx export. */
 import { Router } from 'express';
-import { DeleteAllQuery, ProspectFilter, ProspectListQuery, ProspectPatch, objectId, type DeletedCount, type ProspectList } from '@op/shared';
+import { CollectRequest, DeleteAllQuery, ProspectFilter, ProspectListQuery, ProspectPatch, objectId, type CollectResponse, type DeletedCount, type ProspectList } from '@op/shared';
 import { parse } from '../lib/validate.js';
 import { userIdOf } from '../auth/middleware.js';
 import {
+  collectProspects,
   deleteAllProspects,
   deleteProspect,
   getProspect,
@@ -12,9 +13,16 @@ import {
   updateProspect,
 } from '../services/prospects.js';
 import { buildProspectWorkbook } from '../services/spreadsheet.js';
+import type { AppContext } from '../context.js';
 
-export function prospectRoutes(): Router {
+export function prospectRoutes(ctx: AppContext): Router {
   const r = Router();
+
+  /** Automatic collection from one page. Not an AI route: no page text, only emails and nearby names. */
+  r.post('/prospects/collect', ctx.limits.collect, async (req, res) => {
+    const body: CollectResponse = await collectProspects(userIdOf(req), parse(CollectRequest, req.body), ctx.env.PROSPECT_TTL_HOURS * 3_600_000);
+    res.status(201).json(body);
+  });
 
   r.get('/prospects', async (req, res) => {
     const body: ProspectList = await listProspects(userIdOf(req), parse(ProspectListQuery, req.query));

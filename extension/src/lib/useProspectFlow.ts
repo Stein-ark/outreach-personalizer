@@ -18,9 +18,9 @@ import {
   type SourceMode,
 } from '@op/shared';
 import { api } from './api';
-import { hintsFromSnapshot } from './deterministic';
+import { emailChoicesFrom, hintsFromSnapshot } from './deterministic';
 import { readTab, type ReadResult } from './reader';
-import { getStored, setStored, useStored } from './storage';
+import { getStored, removeStored, setStored, useStored } from './storage';
 import { PENDING_READ_KEY, PendingRead, WORK_KEY, WorkItem, type LooseFields } from './work';
 import { toShown, type ShownError } from '../components/ErrorNotice';
 
@@ -28,6 +28,12 @@ export type ReadNotice = Extract<ReadResult, { ok: false }>;
 export type FieldErrors = Partial<Record<FieldKey, string>>;
 
 const newId = () => crypto.randomUUID();
+
+/**
+ * The panel running an AI step for a work item holds this Web Lock until the step ends. Chrome releases it if the
+ * panel closes, so any panel (another window, or this one reopened) can tell a running step from an abandoned one.
+ */
+const workLock = (id: string) => `op-work-${id}`;
 
 /** Reads, changes and writes the work item, but only if it is still the same item (guards against late async results). */
 async function mutateWork(id: string, fn: (w: WorkItem) => WorkItem): Promise<void> {
@@ -66,22 +72,27 @@ export function useProspectFlow(defaultDials: Dials | null) {
   const [busy, setBusy] = useState<null | 'reading' | 'saving'>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const lastExtract = useRef<{ workId: string; request: ExtractRequest } | null>(null);
-  const consumedAt = useRef<number | null>(null);
 
-  const runExtract = useCallback(async (workId: string, request: ExtractRequest) => {
-    lastExtract.current = { workId, request };
-    setError(null);
-    await mutateWork(workId, (w) => ({ ...w, phase: 'extracting' }));
-    try {
-      const res = await api.extract(request);
-      await mutateWork(workId, (w) => ({ ...w, phase: 'review', fields: res.fields, origins: res.origins }));
-      lastExtract.current = null;
-    } catch (err) {
-      // The page level fields found locally stay, so the user can still fill the rest by hand.
-      await mutateWork(workId, (w) => ({ ...w, phase: 'review' }));
-      setError(toShown(err));
-    }
-  }, []);
+  /** Runs extraction under the work lock. `create` is stored first, inside the lock, for a brand new item. */
+  const runExtract = useCallback(
+    (workId: string, request: ExtractRequest, create?: WorkItem) =>
+      navigator.locks.request(workLock(workId), async () => {
+        lastExtract.current = { workId, request };
+        setError(null);
+        if (create) await work.update(create);
+        else await mutateWork(workId, (w) => ({ ...w, phase: 'extracting' }));
+        try {
+          const res = await api.extract(request);
+          await mutateWork(workId, (w) => ({ ...w, phase: 'review', fields: res.fields, origins: res.origins }));
+          lastExtract.current = null;
+        } catch (err) {
+          // The page level fields found locally stay, so the user can still fill the rest by hand.
+          await mutateWork(workId, (w) => ({ ...w, phase: 'review' }));
+          setError(toShown(err));
+        }
+      }),
+    [work],
+  );
 
   const begin = useCallback(
     async (mode: SourceMode, tabId: number | null, snapshot: PageSnapshot) => {
@@ -101,15 +112,14 @@ export function useProspectFlow(defaultDials: Dials | null) {
         dials: defaultDials ?? DEFAULT_DIALS,
         draft: null,
         prospectId: null,
+        emailChoices: emailChoicesFrom(snapshot),
+        expiresAt: null,
         dirty: false,
         staleReason: null,
       };
-      // Set before the work item is stored, so the "interrupted" check below sees the text is in memory.
-      lastExtract.current = { workId: item.id, request };
-      await work.update(item);
-      await runExtract(item.id, request);
+      await runExtract(item.id, request, item);
     },
-    [defaultDials, runExtract, work],
+    [defaultDials, runExtract],
   );
 
   const startFromRead = useCallback(
@@ -120,22 +130,32 @@ export function useProspectFlow(defaultDials: Dials | null) {
     [begin],
   );
 
-  // Consume a read handed over by the service worker. It is removed at once so it is processed exactly once.
+  // Consume a read handed over by the service worker. Taken and removed under a lock, so when panels are open in
+  // several windows exactly one of them processes it.
   useEffect(() => {
-    const p = pending.value;
-    if (!p || consumedAt.current === p.at) return;
-    consumedAt.current = p.at;
-    void pending.update(null);
-    // Ignore stale hand-offs (for example from before a browser crash).
-    if (Date.now() - p.at < 5 * 60_000) void startFromRead(p.result);
-  }, [pending, startFromRead]);
+    if (!pending.value) return;
+    void navigator.locks.request('op-pending-read', async () => {
+      const p = await getStored('session', PENDING_READ_KEY, PendingRead);
+      if (!p) return;
+      await removeStored('session', PENDING_READ_KEY);
+      // Ignore stale hand-offs (for example from before a browser crash).
+      if (Date.now() - p.at < 5 * 60_000) void startFromRead(p.result);
+    });
+  }, [pending.value, startFromRead]);
 
-  // A work item left in "extracting" with no text in memory means the panel was closed mid read.
+  // Watch every AI step by queueing for its lock. The lock is granted once the step's panel finishes or closes, and
+  // if the item is still mid step at that moment, the step was abandoned, so the fields are unlocked again.
+  const watched = useRef(new Set<string>());
   useEffect(() => {
     const w = work.value;
-    if (w?.phase === 'extracting' && lastExtract.current?.workId !== w.id) {
-      void mutateWork(w.id, (x) => ({ ...x, phase: 'interrupted' }));
-    }
+    if (!w || (w.phase !== 'extracting' && w.phase !== 'drafting') || watched.current.has(w.id)) return;
+    watched.current.add(w.id);
+    void navigator.locks.request(workLock(w.id), async () => {
+      watched.current.delete(w.id);
+      await mutateWork(w.id, (x) =>
+        x.phase === 'extracting' ? { ...x, phase: 'interrupted' } : x.phase === 'drafting' ? { ...x, phase: x.draft ? 'drafted' : 'review' } : x,
+      );
+    });
   }, [work.value]);
 
   // Never silently draft for a different page: switching tab or navigating marks the work as stale.
@@ -220,16 +240,26 @@ export function useProspectFlow(defaultDials: Dials | null) {
     const fields = validFields(w.fields);
     if (!fields) return;
     setError(null);
-    await work.update({ ...w, phase: 'drafting' });
-    try {
-      // Paste mode carries no URL. Page and selection modes keep the page URL so the prospect is deduplicated.
-      const res = await api.draft({ fields, source: { mode: w.source.mode, url: w.source.url, title: w.source.title }, dials: w.dials });
-      await mutateWork(w.id, (x) => ({ ...x, phase: 'drafted', draft: res.draft, prospectId: res.prospect.id, dirty: false }));
-      setSavedAt(Date.now());
-    } catch (err) {
-      await mutateWork(w.id, (x) => ({ ...x, phase: x.draft ? 'drafted' : 'review' }));
-      setError(toShown(err));
-    }
+    await navigator.locks.request(workLock(w.id), async () => {
+      await work.update({ ...w, phase: 'drafting' });
+      try {
+        // Paste mode carries no URL. Page and selection modes keep the page URL so the prospect is deduplicated.
+        const res = await api.draft({ fields, source: { mode: w.source.mode, url: w.source.url, title: w.source.title }, dials: w.dials });
+        // prospect is null when the draft was made but the database was unavailable: keep the draft, mark it unsaved.
+        await mutateWork(w.id, (x) => ({
+          ...x,
+          phase: 'drafted',
+          draft: res.draft,
+          prospectId: res.prospect?.id ?? null,
+          expiresAt: res.prospect?.expiresAt ?? null,
+          dirty: res.prospect === null,
+        }));
+        setSavedAt(Date.now());
+      } catch (err) {
+        await mutateWork(w.id, (x) => ({ ...x, phase: x.draft ? 'drafted' : 'review' }));
+        setError(toShown(err));
+      }
+    });
   };
 
   const save = async () => {

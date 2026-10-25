@@ -5,6 +5,7 @@
 import type { z } from 'zod';
 import {
   AuthResponse,
+  CollectResponse,
   DeletedCount,
   DraftResponse,
   ExtractResponse,
@@ -13,6 +14,7 @@ import {
   Settings,
   VoiceSample,
   VoiceSampleList,
+  type CollectRequest,
   type Credentials,
   type DraftRequest,
   type ExtractRequest,
@@ -98,6 +100,7 @@ export const api = {
   patchProspect: async (id: string, body: ProspectPatch) =>
     json(Prospect, await authed(`/prospects/${encodeURIComponent(id)}`, { method: 'PATCH', body })),
   deleteProspect: async (id: string) => void (await authed(`/prospects/${encodeURIComponent(id)}`, { method: 'DELETE' })),
+  collect: async (body: CollectRequest) => json(CollectResponse, await authed('/prospects/collect', { method: 'POST', body })),
   deleteAllProspects: async () => json(DeletedCount, await authed('/prospects?confirm=all', { method: 'DELETE' })),
 
   /** Authenticated download: fetch the file as a blob and hand it to the browser via an object URL. */

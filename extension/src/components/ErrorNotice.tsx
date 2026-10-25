@@ -61,6 +61,15 @@ export function ErrorNotice({ shown, onRetry, onOpenSettings, onDismiss }: Props
           Drafts need your name, organisation and what you are raising for or offering.
         </Banner>
       );
+    case 'DB_UNAVAILABLE':
+      return (
+        <Banner tone="warn" title="Saved data is unavailable for now" actions={<>{retry}{dismiss}</>}>
+          The server can't reach its database. Reading pages and extracting details still work. Saving, your list and settings
+          come back on their own, usually within a minute.
+        </Banner>
+      );
+    case 'VALIDATION':
+      return <Banner tone="warn" title="A few details are missing" actions={dismiss}>{error.message}</Banner>;
     case 'AI_FAILED':
     case 'AI_UNAVAILABLE':
       return <Banner tone="error" title="The AI step failed" actions={<>{retry}{dismiss}</>}>{error.message}</Banner>;

@@ -26,6 +26,8 @@ export default defineConfig({
       minimum_chrome_version: '116',
       permissions: ['storage', 'activeTab', 'scripting', 'sidePanel', 'contextMenus'],
       host_permissions: [`${origin}/*`],
+      // Requested only when the user turns on automatic collection in Settings, and removed when they turn it off.
+      optional_host_permissions: ['https://*/*', 'http://*/*'],
       // An action with no popup, so clicking the icon fires action.onClicked (a user gesture that grants activeTab).
       action: { default_title: `Open ${APP_NAME} for this page` },
       commands: {

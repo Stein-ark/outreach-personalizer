@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { APP_NAME, FIELD_KEYS, FIELD_LIMITS, PAGE_TEXT_CAP, isSenderProfileComplete, type FieldKey, type Settings } from '@op/shared';
 import { api } from '../lib/api';
+import { emailMatchesName } from '../lib/deterministic';
+import { EXPIRY_WARNING_MS, formatClock, formatLeft, useNow } from '../lib/expiry';
 import { useProspectFlow, type ReadNotice } from '../lib/useProspectFlow';
 import type { WorkItem } from '../lib/work';
 import { Banner, Button, Choice, Field, Spinner } from '../components/ui';
@@ -150,21 +152,66 @@ function SourceLine({ work, onNew, onReread, rereading }: { work: WorkItem; onNe
   );
 }
 
+/** Unsaved, saved until a time, or no longer saved. Saved prospects are deleted by the server after a few hours. */
+function SavedStatus({ dirty, expiresAt, saved }: { dirty: boolean; expiresAt: string | null; saved: boolean }) {
+  const now = useNow();
+  const left = expiresAt ? Date.parse(expiresAt) - now : null;
+  if (!saved) return <p className="text-[12px] font-medium text-warn" aria-live="polite">Not saved to your list</p>;
+  let text = dirty ? 'Unsaved changes' : 'Saved to your list';
+  if (left !== null && left <= 0) text = 'No longer saved. Draft again to save it';
+  else if (left !== null && !dirty) text = `Saved until ${formatClock(expiresAt!)}`;
+  const urgent = left !== null && left < EXPIRY_WARNING_MS;
+  return (
+    <p className={`text-[12px] ${urgent ? 'font-medium text-warn' : 'text-ink-soft'}`} aria-live="polite" title={left !== null && left > 0 ? `Deleted in ${formatLeft(left)}. Export from the Saved tab to keep it.` : undefined}>
+      {text}
+    </p>
+  );
+}
+
+/** Every address on the page as a one click choice, the likely match for the name first. */
+function EmailChoices({ choices, current, name, onPick, disabled }: { choices: string[]; current: string | null; name: string | null; onPick: (e: string) => void; disabled: boolean }) {
+  if (choices.length === 0 || (choices.length === 1 && choices[0] === current)) return null;
+  const sorted = [...choices].sort((a, b) => Number(emailMatchesName(b, name)) - Number(emailMatchesName(a, name)));
+  return (
+    <div className="-mt-1 flex flex-col gap-1.5">
+      <p className="text-[12px] text-ink-soft">
+        {choices.length} address{choices.length === 1 ? '' : 'es'} on this page. Choose the one for this person:
+      </p>
+      <ul className="flex flex-wrap gap-1.5">
+        {sorted.map((e) => (
+          <li key={e}>
+            <button
+              type="button"
+              disabled={disabled}
+              aria-pressed={e === current}
+              onClick={() => onPick(e)}
+              className={`max-w-full truncate rounded-full border px-2.5 py-1 text-[12px] ${e === current ? 'border-action bg-action-soft text-ink' : 'border-rule bg-surface text-ink-soft hover:text-ink'}`}
+            >
+              {e}
+              {emailMatchesName(e, name) ? <span className="ml-1 text-action">likely match</span> : null}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function CopyButton({ text, label }: { text: string; label: string }) {
-  const [done, setDone] = useState(false);
+  const [result, setResult] = useState<null | 'copied' | 'failed'>(null);
   useEffect(() => {
-    if (!done) return;
-    const t = setTimeout(() => setDone(false), 1800);
+    if (!result) return;
+    const t = setTimeout(() => setResult(null), 2500);
     return () => clearTimeout(t);
-  }, [done]);
+  }, [result]);
   return (
     <Button
       size="sm"
-      icon={done ? Check : Copy}
-      onClick={() => void navigator.clipboard.writeText(text).then(() => setDone(true))}
+      icon={result === 'copied' ? Check : Copy}
+      onClick={() => void navigator.clipboard.writeText(text).then(() => setResult('copied'), () => setResult('failed'))}
       aria-live="polite"
     >
-      {done ? 'Copied' : label}
+      {result === 'copied' ? 'Copied' : result === 'failed' ? 'Copy failed, select the text instead' : label}
     </Button>
   );
 }
@@ -236,20 +283,24 @@ export function ProspectView({ onOpenSettings }: { onOpenSettings: () => void })
               <p className="text-[12px] text-ink-soft">Long page: only the first {PAGE_TEXT_CAP.toLocaleString()} characters were used.</p>
             ) : null}
             {FIELD_KEYS.map((key) => (
-              <Field
-                key={key}
-                label={LABELS[key]}
-                value={w.fields[key] ?? ''}
-                onChange={(v) => flow.setField(key, v)}
-                multiline={key === 'bio' || key === 'detail'}
-                rows={key === 'bio' ? 3 : 2}
-                type={key === 'email' ? 'email' : 'text'}
-                maxLength={FIELD_LIMITS[key]}
-                disabled={extracting || drafting}
-                tag={<OriginTag origin={w.origins[key]} />}
-                error={flow.fieldErrors[key] ?? null}
-                hint={key === 'detail' ? 'The opener is built on this. Make sure it is true and specific.' : key === 'email' ? 'Only filled when the address is on the page.' : undefined}
-              />
+              <div key={key} className="flex flex-col gap-2">
+                <Field
+                  label={LABELS[key]}
+                  value={w.fields[key] ?? ''}
+                  onChange={(v) => flow.setField(key, v)}
+                  multiline={key === 'bio' || key === 'detail'}
+                  rows={key === 'bio' ? 3 : 2}
+                  type={key === 'email' ? 'email' : 'text'}
+                  maxLength={FIELD_LIMITS[key]}
+                  disabled={extracting || drafting}
+                  tag={<OriginTag origin={w.origins[key]} />}
+                  error={flow.fieldErrors[key] ?? null}
+                  hint={key === 'detail' ? 'The opener is built on this. Make sure it is true and specific.' : key === 'email' ? 'Only addresses that appear on the page.' : undefined}
+                />
+                {key === 'email' ? (
+                  <EmailChoices choices={w.emailChoices} current={w.fields.email} name={w.fields.name} onPick={(e) => flow.setField('email', e)} disabled={extracting || drafting} />
+                ) : null}
+              </div>
             ))}
             {!w.confirmed ? (
               <Button variant="primary" icon={Check} disabled={extracting} onClick={flow.confirm} className="self-start">
@@ -285,9 +336,15 @@ export function ProspectView({ onOpenSettings }: { onOpenSettings: () => void })
             <section aria-labelledby="draft-heading" className="flex flex-col gap-3 border-t border-rule pt-4">
               <div className="flex items-baseline justify-between">
                 <h2 id="draft-heading" className="font-semibold">Draft</h2>
-                <p className="text-[12px] text-ink-soft" aria-live="polite">{w.dirty ? 'Unsaved changes' : 'Saved to your list'}</p>
+                <SavedStatus dirty={w.dirty} expiresAt={w.expiresAt} saved={w.prospectId !== null} />
               </div>
-              <article key={flow.savedAt ?? 0} className="animate-settle rounded-lg border border-rule bg-sheet shadow-[0_1px_0_var(--rule)]">
+              {w.prospectId === null ? (
+                <Banner tone="warn" title="Draft ready, but not saved">
+                  The server couldn't reach its database, so this draft isn't in your list. Copy it now, or use Draft again later to
+                  save it.
+                </Banner>
+              ) : null}
+              <article key={flow.savedAt ?? 0} className={`${flow.savedAt && Date.now() - flow.savedAt < 1000 ? 'animate-settle ' : ''}rounded-lg border border-rule bg-sheet shadow-[0_1px_0_var(--rule)]`}>
                 <div className="border-b border-rule px-3 py-2">
                   <label htmlFor="draft-subject" className="text-[12px] text-ink-soft">Subject</label>
                   <input
@@ -319,9 +376,11 @@ export function ProspectView({ onOpenSettings }: { onOpenSettings: () => void })
               <div className="flex flex-wrap gap-2">
                 <CopyButton text={w.draft.subject} label="Copy subject" />
                 <CopyButton text={w.draft.body} label="Copy body" />
-                <Button size="sm" variant={w.dirty ? 'primary' : 'secondary'} icon={Save} busy={flow.busy === 'saving'} disabled={!w.dirty} onClick={() => void flow.save()}>
-                  Save changes
-                </Button>
+                {w.prospectId !== null ? (
+                  <Button size="sm" variant={w.dirty ? 'primary' : 'secondary'} icon={Save} busy={flow.busy === 'saving'} disabled={!w.dirty} onClick={() => void flow.save()}>
+                    Save changes
+                  </Button>
+                ) : null}
               </div>
             </section>
           ) : null}

@@ -3,42 +3,48 @@
  * Pages are loaded with the server cursor ("Show more"), never all at once.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Download, FolderOpen, Search, Trash2 } from 'lucide-react';
-import { ProspectStatus, type Prospect, type ProspectFilter } from '@op/shared';
+import { Clock, Download, FolderOpen, Search, Trash2 } from 'lucide-react';
+import { DEFAULT_DIALS, ProspectStatus, type Prospect, type ProspectFilter } from '@op/shared';
 import { api } from '../lib/api';
 import { getStored, setStored } from '../lib/storage';
 import { WORK_KEY, WorkItem } from '../lib/work';
+import { EXPIRY_WARNING_MS, formatLeft, retentionLabel, useNow } from '../lib/expiry';
 import { Banner, Button, Choice, Spinner } from '../components/ui';
 import { ErrorNotice, toShown, type ShownError } from '../components/ErrorNotice';
 
 type StatusFilter = 'all' | ProspectStatus;
 
-const STATUS_LABEL: Record<ProspectStatus, string> = { drafted: 'Drafted', sent: 'Sent', replied: 'Replied' };
+const STATUS_LABEL: Record<ProspectStatus, string> = { new: 'Not contacted', drafted: 'Drafted', sent: 'Sent', replied: 'Replied' };
 
 function toWork(p: Prospect): WorkItem {
+  const draft = p.subject && p.body && p.detailUsed ? { subject: p.subject, body: p.body, detailUsed: p.detailUsed } : null;
   return {
     id: crypto.randomUUID(),
     tabId: null,
-    source: { mode: p.sourceMode, url: p.sourceUrl, title: p.sourceTitle },
-    phase: 'drafted',
+    // A collected person is drafted like a selection: the page URL is kept, and the prospect is matched by email.
+    source: { mode: p.sourceMode === 'auto' ? 'selection' : p.sourceMode, url: p.sourceUrl, title: p.sourceTitle },
+    phase: draft ? 'drafted' : 'review',
     fields: { name: p.name, role: p.role, company: p.company, bio: p.bio, detail: p.detail, email: p.email },
     origins: {},
     textTruncated: false,
-    confirmed: true,
-    dials: { tone: p.tone, length: p.length, goal: p.goal },
-    draft: { subject: p.subject, body: p.body, detailUsed: p.detailUsed },
+    confirmed: draft !== null,
+    dials: { tone: p.tone ?? DEFAULT_DIALS.tone, length: p.length ?? DEFAULT_DIALS.length, goal: p.goal ?? DEFAULT_DIALS.goal },
+    draft,
     prospectId: p.id,
+    emailChoices: [],
+    expiresAt: p.expiresAt,
     dirty: false,
     staleReason: null,
   };
 }
 
-function Row({ p, onChanged, onDeleted, onOpen }: { p: Prospect; onChanged: (p: Prospect) => void; onDeleted: (id: string) => void; onOpen: (p: Prospect) => void }) {
+function Row({ p, now, onChanged, onDeleted, onOpen }: { p: Prospect; now: number; onChanged: (p: Prospect) => void; onDeleted: (id: string) => void; onOpen: (p: Prospect) => void }) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ShownError | null>(null);
-  const title = p.name ?? p.company ?? p.sourceTitle ?? 'Unnamed prospect';
+  const title = p.name ?? p.company ?? p.email ?? p.sourceTitle ?? 'Unnamed prospect';
   const sub = [p.role, p.name ? p.company : null].filter(Boolean).join(', ');
+  const left = Date.parse(p.expiresAt) - now;
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -58,7 +64,11 @@ function Row({ p, onChanged, onDeleted, onOpen }: { p: Prospect; onChanged: (p: 
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{title}</p>
           {sub ? <p className="truncate text-[12px] text-ink-soft">{sub}</p> : null}
-          <p className="truncate text-[12px] text-ink-soft">{p.subject}</p>
+          <p className="truncate text-[12px] text-ink-soft">{p.subject ?? (p.name ? p.email : p.sourceTitle)}</p>
+          <p className={`mt-0.5 flex items-center gap-1 text-[12px] ${left < EXPIRY_WARNING_MS ? 'font-medium text-warn' : 'text-ink-soft'}`}>
+            <Clock aria-hidden className="size-3" />
+            Deleted in {formatLeft(left)}
+          </p>
         </div>
         <label className="sr-only" htmlFor={`status-${p.id}`}>Status for {title}</label>
         <select
@@ -105,6 +115,7 @@ export default function ListView({ onOpened }: { onOpened: () => void }) {
   const [error, setError] = useState<ShownError | null>(null);
   const [confirmAll, setConfirmAll] = useState(false);
   const [pendingOpen, setPendingOpen] = useState<Prospect | null>(null);
+  const now = useNow();
 
   // Debounce typing so search does not fire a request per keystroke.
   useEffect(() => {
@@ -163,6 +174,10 @@ export default function ListView({ onOpened }: { onOpened: () => void }) {
   };
 
   const filtered = Boolean(query) || status !== 'all';
+  // Drop rows whose time is up, matching what the server already hides.
+  const visible = items.filter((p) => Date.parse(p.expiresAt) > now);
+  const soonest = visible.reduce<number | null>((min, p) => Math.min(min ?? Infinity, Date.parse(p.expiresAt) - now), null);
+  const keptFor = visible[0] ? retentionLabel(visible[0].createdAt, visible[0].expiresAt) : 'a few hours';
 
   return (
     <div className="flex flex-col gap-3">
@@ -183,9 +198,21 @@ export default function ListView({ onOpened }: { onOpened: () => void }) {
         legend="Status"
         value={status}
         onChange={setStatus}
-        options={[{ value: 'all', label: 'All' }, { value: 'drafted', label: 'Drafted' }, { value: 'sent', label: 'Sent' }, { value: 'replied', label: 'Replied' }]}
+        options={[{ value: 'all', label: 'All' }, { value: 'new', label: 'New' }, { value: 'drafted', label: 'Drafted' }, { value: 'sent', label: 'Sent' }, { value: 'replied', label: 'Replied' }]}
       />
-      <Button icon={Download} busy={exporting} disabled={loading || items.length === 0} onClick={() => void exportFile()}>
+      {visible.length > 0 ? (
+        soonest !== null && soonest < EXPIRY_WARNING_MS ? (
+          <Banner tone="warn" title={`A prospect is deleted in ${formatLeft(soonest)}`}>
+            Saved prospects are kept for {keptFor}, then deleted from the server. Export now to keep a copy.
+          </Banner>
+        ) : (
+          <p className="flex gap-1.5 text-[12px] text-ink-soft">
+            <Clock aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+            Saved prospects are kept for {keptFor}, then deleted. Export the list before then to keep your drafts.
+          </p>
+        )
+      ) : null}
+      <Button icon={Download} variant={soonest !== null && soonest < EXPIRY_WARNING_MS ? 'primary' : 'secondary'} busy={exporting} disabled={loading || visible.length === 0} onClick={() => void exportFile()}>
         {exporting ? 'Exporting' : filtered ? 'Export these (.xlsx)' : 'Export all (.xlsx)'}
       </Button>
 
@@ -207,20 +234,22 @@ export default function ListView({ onOpened }: { onOpened: () => void }) {
 
       {loading ? (
         <Spinner label="Loading saved prospects" />
-      ) : items.length === 0 ? (
-        <div className="py-6">
+      ) : visible.length === 0 ? (
+        // When loading failed, the error above explains it. Claiming the list is empty would be wrong.
+        error ? null : <div className="py-6">
           <p className="font-semibold">{filtered ? 'No prospects match' : 'No saved prospects yet'}</p>
           <p className="mt-1 text-ink-soft">
-            {filtered ? 'Try another search or status.' : 'Every email you draft is saved here, ready to track and export.'}
+            {filtered ? 'Try another search or status.' : 'Every email you draft is saved here for a few hours, ready to track and export.'}
           </p>
         </div>
       ) : (
         <>
           <ul aria-label="Saved prospects" className="divide-y divide-rule">
-            {items.map((p) => (
+            {visible.map((p) => (
               <Row
                 key={p.id}
                 p={p}
+                now={now}
                 onOpen={(x) => void open(x)}
                 onChanged={(next) => setItems((list) => (status !== 'all' && next.status !== status ? list.filter((i) => i.id !== next.id) : list.map((i) => (i.id === next.id ? next : i))))}
                 onDeleted={(id) => setItems((list) => list.filter((i) => i.id !== id))}

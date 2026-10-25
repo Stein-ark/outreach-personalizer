@@ -4,6 +4,7 @@
  */
 import { z } from 'zod';
 import {
+  COLLECT_MAX_PEOPLE,
   FIELD_LIMITS,
   PAGE_SIZE_DEFAULT,
   PAGE_SIZE_MAX,
@@ -36,8 +37,13 @@ export const objectId = z.string().regex(/^[a-f0-9]{24}$/, 'Invalid id');
 
 // Section: enums
 
+/** How the user supplied text for extraction or drafting. */
 export const SourceMode = z.enum(['page', 'selection', 'paste']);
 export type SourceMode = z.infer<typeof SourceMode>;
+
+/** How a saved prospect got into the list: one of the user modes, or automatic collection. */
+export const ProspectSource = z.enum(['page', 'selection', 'paste', 'auto']);
+export type ProspectSource = z.infer<typeof ProspectSource>;
 
 export const Tone = z.enum(['formal', 'warm', 'direct']);
 export type Tone = z.infer<typeof Tone>;
@@ -48,7 +54,8 @@ export type Length = z.infer<typeof Length>;
 export const Goal = z.enum(['book_call', 'introduce_service', 'ask_intro']);
 export type Goal = z.infer<typeof Goal>;
 
-export const ProspectStatus = z.enum(['drafted', 'sent', 'replied']);
+/** new = collected but not contacted yet (no draft). */
+export const ProspectStatus = z.enum(['new', 'drafted', 'sent', 'replied']);
 export type ProspectStatus = z.infer<typeof ProspectStatus>;
 
 export const Dials = z.strictObject({ tone: Tone, length: Length, goal: Goal });
@@ -241,22 +248,26 @@ export const Prospect = z.object({
   email: z.string().nullable(),
   sourceUrl: z.string().nullable(),
   sourceTitle: z.string().nullable(),
-  sourceMode: SourceMode,
-  subject: z.string(),
-  body: z.string(),
-  detailUsed: z.string(),
-  tone: Tone,
-  length: Length,
-  goal: Goal,
-  baseInstructionsVersion: z.string(),
-  model: z.string(),
+  sourceMode: ProspectSource,
+  /** The draft fields are null for prospects collected automatically and not drafted yet. */
+  subject: z.string().nullable(),
+  body: z.string().nullable(),
+  detailUsed: z.string().nullable(),
+  tone: Tone.nullable(),
+  length: Length.nullable(),
+  goal: Goal.nullable(),
+  baseInstructionsVersion: z.string().nullable(),
+  model: z.string().nullable(),
   status: ProspectStatus,
   createdAt: z.string(),
   updatedAt: z.string(),
+  /** When the server deletes this prospect. Users export before then. */
+  expiresAt: z.string(),
 });
 export type Prospect = z.infer<typeof Prospect>;
 
-export const DraftResponse = z.object({ draft: DraftOutput, prospect: Prospect });
+/** prospect is null when the draft was generated but could not be saved (database unavailable). The draft is still usable. */
+export const DraftResponse = z.object({ draft: DraftOutput, prospect: Prospect.nullable() });
 export type DraftResponse = z.infer<typeof DraftResponse>;
 
 export const ProspectFilter = z.strictObject({
@@ -290,6 +301,23 @@ export const ProspectPatch = z
   .refine((v) => Object.keys(v).length > 0, 'Nothing to update');
 export type ProspectPatch = z.infer<typeof ProspectPatch>;
 
+export const CollectedPerson = z.strictObject({
+  email: z.string().trim().toLowerCase().max(FIELD_LIMITS.email).pipe(z.email()),
+  name: nullableText(FIELD_LIMITS.name),
+});
+export type CollectedPerson = z.infer<typeof CollectedPerson>;
+
+/** Sent by the extension's automatic collector: the people (email plus nearby name) visible on one page. */
+export const CollectRequest = z.strictObject({
+  url: httpUrl,
+  title: nullableText(FIELD_LIMITS.title),
+  people: z.array(CollectedPerson).min(1).max(COLLECT_MAX_PEOPLE),
+});
+export type CollectRequest = z.infer<typeof CollectRequest>;
+
+export const CollectResponse = z.object({ added: z.number().int(), alreadySaved: z.number().int() });
+export type CollectResponse = z.infer<typeof CollectResponse>;
+
 export const DeleteAllQuery = z.strictObject({ confirm: z.literal('all') });
 
 export const DeletedCount = z.object({ deleted: z.number().int() });
@@ -315,6 +343,7 @@ export const ErrorCode = z.enum([
   'AI_FAILED',
   'AI_UNAVAILABLE',
   'HTTPS_REQUIRED',
+  'DB_UNAVAILABLE',
   'INTERNAL',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;
@@ -329,4 +358,11 @@ export const ErrorBody = z.object({
 });
 export type ErrorBody = z.infer<typeof ErrorBody>;
 
-export const Health = z.object({ ok: z.literal(true), version: z.string() });
+/** ok means the process is up. db and ai report each dependency separately, so one being down is visible on its own. */
+export const Health = z.object({
+  ok: z.literal(true),
+  version: z.string(),
+  db: z.enum(['up', 'down']),
+  ai: z.enum(['up', 'unreachable', 'unchecked']),
+});
+export type Health = z.infer<typeof Health>;

@@ -50,8 +50,10 @@ const cannedProvider: AiProvider = {
   },
 };
 
+// Same as the real server: fail fast with DB_UNAVAILABLE when the database is down.
+mongoose.set('bufferCommands', false);
 const mongo = await MongoMemoryServer.create();
-await mongoose.connect(mongo.getUri());
+await mongoose.connect(mongo.getUri(), { serverSelectionTimeoutMS: 10_000 });
 await syncIndexes();
 
 const env = loadEnv({

@@ -14,6 +14,8 @@ export interface GatewayOptions {
 }
 
 export class AiGateway {
+  /** Last known reachability of the provider, for /health. Updated by every call and by the boot check. */
+  reachability: 'up' | 'unreachable' | 'unchecked' = 'unchecked';
   private readonly random: () => number;
   private readonly sleep: (ms: number) => Promise<void>;
 
@@ -46,6 +48,7 @@ export class AiGateway {
       try {
         const result = await this.provider.completeJson(req);
         reservation.settle(result.usage.total);
+        this.reachability = 'up';
         this.logger.info(
           { ai: { purpose, model: this.provider.model, ms: Date.now() - started, ...result.usage } },
           'ai call',
@@ -55,6 +58,7 @@ export class AiGateway {
         // A failed call may still have consumed provider capacity, so the estimate is kept.
         if (!(err instanceof ProviderError)) throw err;
         this.logger.warn({ ai: { purpose, model: this.provider.model, kind: err.kind } }, 'ai call failed');
+        if (err.kind === 'transient') this.reachability = 'unreachable';
         if (err.kind === 'invalid_output') throw err;
         if (err.kind === 'fatal') throw new AppError(502, 'AI_FAILED', 'The AI service could not complete this request.');
         const waitMs =

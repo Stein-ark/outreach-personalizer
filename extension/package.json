@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "wxt",
     "build": "wxt build",
+    "build:dev": "wxt build --mode development",
     "zip": "wxt zip",
     "typecheck": "WXT_API_BASE_URL=http://localhost:8787 wxt prepare && tsc --noEmit",
     "test": "vitest run"

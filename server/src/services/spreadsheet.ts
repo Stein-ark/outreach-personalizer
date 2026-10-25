@@ -29,7 +29,7 @@ export const EXPORT_COLUMNS: { header: string; width: number; value: (p: Prospec
   { header: 'Role', width: 24, value: (p) => p.role },
   { header: 'Company', width: 24, value: (p) => p.company },
   { header: 'Email', width: 28, value: (p) => p.email },
-  { header: 'Status', width: 10, value: (p) => p.status },
+  { header: 'Status', width: 14, value: (p) => (p.status === 'new' ? 'not contacted' : p.status) },
   { header: 'Date added', width: 18, value: (p) => p.createdAt.slice(0, 16).replace('T', ' ') },
   { header: 'Source URL', width: 40, value: (p) => p.sourceUrl },
   { header: 'Detail used', width: 40, value: (p) => p.detailUsed },

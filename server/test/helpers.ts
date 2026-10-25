@@ -68,8 +68,8 @@ export function buildTestApp(envOverrides: Record<string, string> = {}) {
   return { app, provider, env, tokens, sessions };
 }
 
-/** Starts one in-memory MongoDB for the test file and wipes all collections between tests. */
-export function useMemoryMongo(): void {
+/** Starts one in-memory MongoDB for the test file and wipes all collections between tests. Returns the URI getter. */
+export function useMemoryMongo(): () => string {
   let mongo: MongoMemoryServer;
   beforeAll(async () => {
     mongo = await MongoMemoryServer.create();
@@ -84,4 +84,5 @@ export function useMemoryMongo(): void {
     await mongoose.disconnect();
     await mongo.stop();
   });
+  return () => mongo.getUri();
 }

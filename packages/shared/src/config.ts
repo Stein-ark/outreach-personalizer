@@ -31,6 +31,9 @@ export const FIELD_LIMITS = {
   search: 100,
 } as const;
 
+/** Maximum people saved from one page by automatic collection. */
+export const COLLECT_MAX_PEOPLE = 50;
+
 /** Page size bounds for cursor pagination on GET /prospects. */
 export const PAGE_SIZE_DEFAULT = 25;
 export const PAGE_SIZE_MAX = 100;
